@@ -8,7 +8,7 @@ export async function getProfile(): Promise<Profile> {
   return current;
 }
 
-export async function updateProfile(patch: Partial<Pick<Profile, 'fullName' | 'phone'>>) {
+export async function updateProfile(patch: Partial<Pick<Profile, 'fullName' | 'phone' | 'email'>>) {
   current = { ...current, ...patch };
   return current;
 }

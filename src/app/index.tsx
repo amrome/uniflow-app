@@ -1,20 +1,12 @@
-import { Link } from 'expo-router';
+import { Redirect } from 'expo-router';
 
-import { AppText, Screen } from '@/components/ui';
-import { useI18n } from '@/i18n';
+import { staffHome, useSession } from '@/services/session';
 
-// Temporary home while screens are ported from Figma (Phase 3).
+/** Entry: route by who is signed in. */
 export default function Index() {
-  const { t, toggleLanguage, language } = useI18n();
-  return (
-    <Screen>
-      <AppText variant="display">Uniflow</AppText>
-      <Link href="/profile/edit">
-        <AppText tone="brand">{t.profile.editTitle}</AppText>
-      </Link>
-      <AppText tone="brand" onPress={toggleLanguage} accessibilityRole="button">
-        {language === 'en' ? 'ع' : 'EN'}
-      </AppText>
-    </Screen>
-  );
+  const { session } = useSession();
+  if (!session) return <Redirect href="/login" />;
+  if (session.role === 'guest') return <Redirect href="/guest" />;
+  if (session.role === 'student') return <Redirect href="/home" />;
+  return <Redirect href={staffHome[session.role]} />;
 }

@@ -58,6 +58,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;
 }
 
+/** Fills `{key}` placeholders: fmt('Hi, {name}', { name: 'Amro' }). */
+export function fmt(template: string, values: Record<string, string | number>): string {
+  return template.replace(/\{(\w+)\}/g, (m, k: string) => (k in values ? String(values[k]) : m));
+}
+
 export function useI18n(): I18nContextValue {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error('useI18n must be used inside <I18nProvider>');
