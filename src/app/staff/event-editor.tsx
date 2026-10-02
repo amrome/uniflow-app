@@ -46,7 +46,7 @@ export default function EventEditor() {
   const { colors } = useTheme();
   const router = useRouter();
   const toast = useToast();
-  const existing = events.use().find((e) => e.id === params.id);
+  const existing = events.useValue().find((e) => e.id === params.id);
   const kind: EventKind = existing?.kind ?? params.kind ?? 'club';
   const organizer =
     kind === 'club'

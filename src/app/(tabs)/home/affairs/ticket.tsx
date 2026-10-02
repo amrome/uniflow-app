@@ -14,7 +14,7 @@ export default function YourTicket() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const tk = ticket.use();
+  const tk = ticket.useValue();
   const [confirming, setConfirming] = useState(false);
   if (!tk) return null;
   const service = affairsServices.find((s) => s.id === tk.serviceId);

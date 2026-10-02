@@ -21,11 +21,11 @@ export default function Profile() {
   const { colors, isDark, setPreference } = useTheme();
   const router = useRouter();
   const { session, signOut } = useSession();
-  const tk = ticket.use();
-  const pass = reservation.use();
-  const goingCount = going.use().length;
-  const favRestaurants = favoriteRestaurants.use();
-  const followed = favoriteInstructors.use();
+  const tk = ticket.useValue();
+  const pass = reservation.useValue();
+  const goingCount = going.useValue().length;
+  const favRestaurants = favoriteRestaurants.useValue();
+  const followed = favoriteInstructors.useValue();
   const [studentId, setStudentId] = useState('2023XXXXX');
   const [name, setName] = useState(session?.name ?? 'Amro Elian');
 

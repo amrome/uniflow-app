@@ -16,15 +16,15 @@ export function createStore<T>(initial: T) {
     listeners.add(l);
     return () => void listeners.delete(l);
   };
-  const use = () => useSyncExternalStore(subscribe, get, get);
-  return { get, set, use };
+  const useValue = () => useSyncExternalStore(subscribe, get, get);
+  return { get, set, useValue };
 }
 
 /** A set of ids that can be toggled (favourite restaurants, instructors…). */
 export function createToggleSet(initial: string[]) {
   const store = createStore<readonly string[]>(initial);
   return {
-    use: store.use,
+    useValue: store.useValue,
     toggle: (id: string) =>
       store.set((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])),
     has: (id: string) => store.get().includes(id),

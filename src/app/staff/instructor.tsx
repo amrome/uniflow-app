@@ -38,7 +38,7 @@ export default function InstructorPortal() {
   const router = useRouter();
   const toast = useToast();
   const i = getInstructor(INSTRUCTOR_ID)!;
-  const saved = portalFor(i, portal.use());
+  const saved = portalFor(i, portal.useValue());
   const [status, setStatus] = useState<PortalStatus>(saved.status);
   const [note, setNote] = useState(saved.note);
   const [hours, setHours] = useState<OfficeHour[]>(saved.hours);

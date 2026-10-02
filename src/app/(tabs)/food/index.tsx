@@ -15,7 +15,7 @@ export default function FoodMenu() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const favorites = favoriteRestaurants.use();
+  const favorites = favoriteRestaurants.useValue();
   const [query, setQuery] = useState('');
 
   const q = query.trim().toLowerCase();

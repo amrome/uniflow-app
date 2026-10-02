@@ -15,7 +15,7 @@ export default function ShuttleSchedule() {
   const { colors } = useTheme();
   const toast = useToast();
   const [reminder, setReminder] = useState(false);
-  const shuttleTimes = shuttleTimetable.use();
+  const shuttleTimes = shuttleTimetable.useValue();
 
   const nextFrom = nextIndex('fromCampus', shuttleTimes);
   const nextTo = nextIndex('toCampus', shuttleTimes);

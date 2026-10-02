@@ -25,8 +25,8 @@ export default function InstructorProfile() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { t, language } = useI18n();
   const { colors } = useTheme();
-  const tables = timetables.use();
-  const portals = portal.use();
+  const tables = timetables.useValue();
+  const portals = portal.useValue();
   const [day, setDay] = useState<WeekDay>(TODAY);
   const i = getInstructor(id);
   if (!i) return null;

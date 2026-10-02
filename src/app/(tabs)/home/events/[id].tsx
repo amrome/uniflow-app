@@ -19,8 +19,8 @@ export default function EventDetails() {
   const router = useRouter();
   const toast = useToast();
   const { session } = useSession();
-  const e = events.use().find((x) => x.id === id);
-  const isGoing = going.use().includes(id ?? '');
+  const e = events.useValue().find((x) => x.id === id);
+  const isGoing = going.useValue().includes(id ?? '');
   if (!e) return null;
 
   const date = formatLongDate(eventDate(e), language);

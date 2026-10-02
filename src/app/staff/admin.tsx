@@ -16,10 +16,10 @@ export default function UniversityAdmin() {
   const { colors } = useTheme();
   const router = useRouter();
   const uni = events
-    .use()
+    .useValue()
     .filter((e) => e.kind === 'university')
     .sort((a, b) => a.dayOffset - b.dayOffset);
-  const trips = shuttleTimetable.use().fromCampus.length;
+  const trips = shuttleTimetable.useValue().fromCampus.length;
 
   return (
     <Screen header={<StaffRootBar title={t.staffPortal.uniTitle} />} gap={12}>

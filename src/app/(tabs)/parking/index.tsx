@@ -20,7 +20,7 @@ export default function Parking() {
   const { t } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const booked = reservation.use();
+  const booked = reservation.useValue();
   const freeNow = freeZones.reduce((n, z) => n + z.free, 0);
   const free = booked ? paidZone.free - 1 : paidZone.free;
   const used = (paidZone.total - free) / paidZone.total;
@@ -126,7 +126,7 @@ function ZoneCard({ zone }: { zone: FreeZone }) {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const toast = useToast();
-  const alerts = spotAlerts.use();
+  const alerts = spotAlerts.useValue();
   const status = zoneStatus(zone);
   const fill = (zone.total - zone.free) / zone.total;
   const barColor = {

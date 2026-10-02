@@ -24,8 +24,8 @@ export default function Events() {
   const { t, language, isRTL } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const all = publishedEvents(events.use());
-  const goingIds = going.use();
+  const all = publishedEvents(events.useValue());
+  const goingIds = going.useValue();
   const [filter, setFilter] = useState<Filter>(params.club ? 'club' : 'all');
   const [clubId, setClubId] = useState<string | undefined>(params.club);
   const [showClubs, setShowClubs] = useState(false);

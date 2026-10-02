@@ -25,7 +25,7 @@ export default function RestaurantMenu() {
   const { colors } = useTheme();
   const router = useRouter();
   const cart = useCart();
-  const favorites = favoriteRestaurants.use();
+  const favorites = favoriteRestaurants.useValue();
   const [category, setCategory] = useState<MenuCategory | 'all'>('all');
   const r = getRestaurant(id);
   if (!r) return null;

@@ -71,7 +71,7 @@ export function NotifyButton({ instructorId }: { instructorId: string }) {
   const { t } = useI18n();
   const { colors } = useTheme();
   const toast = useToast();
-  const on = notifyInstructors.use().includes(instructorId);
+  const on = notifyInstructors.useValue().includes(instructorId);
   return (
     <Pressable
       accessibilityRole="button"

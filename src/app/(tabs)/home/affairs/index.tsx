@@ -14,7 +14,7 @@ export default function StudentAffairs() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const current = ticket.use();
+  const current = ticket.useValue();
   const [serviceId, setServiceId] = useState('scholarships');
   const [slot, setSlot] = useState<number | 'next'>('next');
   const service = affairsServices.find((s) => s.id === serviceId) ?? affairsServices[0];

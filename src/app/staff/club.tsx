@@ -16,7 +16,7 @@ export default function ClubAdmin() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const mine = events.use().filter((e) => e.clubId === CLUB_ID);
+  const mine = events.useValue().filter((e) => e.clubId === CLUB_ID);
   const active = mine.filter((e) => !e.draft);
   const rsvps = active.reduce((n, e) => n + e.goingCount, 0);
   const club = clubs.find((c) => c.id === CLUB_ID)!;

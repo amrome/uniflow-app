@@ -14,7 +14,7 @@ export default function ParkingReserved() {
   const { t } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const r = reservation.use();
+  const r = reservation.useValue();
   if (!r) return null;
 
   const method = { applePay: t.parking.applePay, mada: t.parking.mada, stcPay: t.parking.stcPay }[

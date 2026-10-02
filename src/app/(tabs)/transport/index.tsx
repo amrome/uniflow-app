@@ -36,7 +36,7 @@ export default function Transportation() {
     ];
   };
 
-  const table = shuttleTimetable.use();
+  const table = shuttleTimetable.useValue();
   const [next, after] = upcoming(direction, table);
   const from = direction === 'fromCampus';
   const until = (m: number | undefined) =>

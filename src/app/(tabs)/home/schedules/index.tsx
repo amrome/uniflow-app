@@ -24,8 +24,8 @@ export default function InstructorSchedules() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const favorites = favoriteInstructors.use();
-  portal.use(); // re-render when an instructor updates their status
+  const favorites = favoriteInstructors.useValue();
+  portal.useValue(); // re-render when an instructor updates their status
   const [major, setMajor] = useState<Major | 'all'>('all');
   const [query, setQuery] = useState('');
 
