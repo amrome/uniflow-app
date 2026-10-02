@@ -116,6 +116,11 @@ ok(
   Number(guestOrder.total) === 42 && guestOrder.order_number === 'UF-10433',
 );
 await fails(
+  'an order number can never repeat',
+  db.query(`update orders set order_number = '${order.order_number}' where id='${guestOrder.id}'`),
+  'duplicate key',
+);
+await fails(
   'empty cart rejected',
   as(db, stu, `select * from place_order('${kafton}', '[]'::jsonb)`),
   'empty',
@@ -181,6 +186,20 @@ await fails(
 );
 const res2 = (await as(db, stu2, `select * from reserve_parking('${paid}', 'mada')`)).rows[0];
 ok('another student gets a different slot (P-18)', (await label(res2.slot_id)) === 'P-18');
+ok(
+  'every reservation gets its own increasing number (gaps are fine, repeats are not)',
+  res.reservation_number === 'PK-10001' &&
+    /^PK-\d+$/.test(res2.reservation_number) &&
+    res2.reservation_number !== res.reservation_number,
+  `${res.reservation_number} ${res2.reservation_number}`,
+);
+await fails(
+  'a reservation number can never repeat',
+  db.query(
+    `update parking_reservations set reservation_number = '${res.reservation_number}' where id='${res2.id}'`,
+  ),
+  'duplicate key',
+);
 await fails(
   'guest cannot reserve parking',
   as(db, gst, `select * from reserve_parking('${paid}', 'mada')`),

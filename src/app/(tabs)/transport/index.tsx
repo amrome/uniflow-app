@@ -4,10 +4,18 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Screen, TopBar } from '@/components/ui';
+import { useToast } from '@/components/ui/Toast';
 import { CampusMap } from '@/features/transport/CampusMap';
+import { TrackButton } from '@/features/transport/TrackButton';
 import { fmt, useI18n } from '@/i18n';
 import { formatDuration, formatTime, nowMinutes } from '@/services/clock';
-import { shuttleTimetable, upcoming, useGolfCarts, type Direction } from '@/services/transport';
+import {
+  shuttleTimetable,
+  trackedTransport,
+  upcoming,
+  useGolfCarts,
+  type Direction,
+} from '@/services/transport';
 import { useTheme } from '@/theme';
 
 type TrackState = 'idle' | 'tracking' | 'near' | 'arrived';
@@ -17,6 +25,7 @@ export default function Transportation() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
+  const toast = useToast();
   const params = useLocalSearchParams<{ dir?: string }>();
   const [direction, setDirection] = useState<Direction>(
     params.dir === 'to' ? 'toCampus' : 'fromCampus',
@@ -27,6 +36,26 @@ export default function Transportation() {
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
   // Prototype tracking: "near" after a moment, "arrived" a few seconds later.
+  const toggleBusTracking = () => {
+    if (track === 'idle') {
+      startTracking();
+      return;
+    }
+    timers.current.forEach(clearTimeout);
+    setTrack('idle');
+  };
+
+  const toggleCartTracking = () => {
+    trackedTransport.toggle('carts');
+    if (!cartsTracked) {
+      toast.show({
+        emoji: '🛺',
+        title: t.transport.cartsTrackTitle,
+        body: t.transport.cartsTrackBody,
+      });
+    }
+  };
+
   const startTracking = () => {
     timers.current.forEach(clearTimeout);
     setTrack('tracking');
@@ -38,6 +67,7 @@ export default function Transportation() {
 
   const table = shuttleTimetable.useValue();
   const golfCarts = useGolfCarts();
+  const cartsTracked = trackedTransport.useValue().includes('carts');
   const [next, after] = upcoming(direction, table);
   const from = direction === 'fromCampus';
   const until = (m: number | undefined) =>
@@ -59,19 +89,6 @@ export default function Transportation() {
           <StatusToast state={track} onClose={() => setTrack('idle')} />
         )}
       </View>
-
-      {track !== 'near' && track !== 'arrived' && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={startTracking}
-          disabled={track === 'tracking'}
-          style={[styles.track, { backgroundColor: colors.brandPrimary }]}
-        >
-          <AppText variant="label" tone="onBrand">
-            {track === 'tracking' ? t.transport.tracking : t.transport.track}
-          </AppText>
-        </Pressable>
-      )}
 
       <View style={[styles.shuttle, { backgroundColor: colors.inkPrimary }]}>
         <View style={styles.toggle}>
@@ -108,11 +125,14 @@ export default function Transportation() {
               </AppText>
             </View>
           </View>
-          <View style={[styles.live, { backgroundColor: colors.brandPrimary }]}>
-            <View style={styles.liveDot} />
-            <AppText size={10} weight="bold" style={styles.white}>
-              {t.home.live}
-            </AppText>
+          <View style={styles.rowEnd}>
+            <TrackButton on={track !== 'idle'} onPress={toggleBusTracking} />
+            <View style={[styles.live, { backgroundColor: colors.brandPrimary }]}>
+              <View style={styles.liveDot} />
+              <AppText size={10} weight="bold" style={styles.white}>
+                {t.home.live}
+              </AppText>
+            </View>
           </View>
         </View>
         <AppText variant="captionStrong" style={{ color: colors.inkOnInkMuted }}>
@@ -146,9 +166,12 @@ export default function Transportation() {
         </Pressable>
       </View>
 
-      <AppText variant="bodyStrong" style={styles.sectionTitle}>
-        {t.transport.golfCarts}
-      </AppText>
+      <View style={styles.sectionRow}>
+        <AppText variant="bodyStrong" style={styles.sectionTitle}>
+          {t.transport.golfCarts}
+        </AppText>
+        <TrackButton on={cartsTracked} onPress={toggleCartTracking} />
+      </View>
       <View style={styles.carts}>
         {golfCarts.map((c) => (
           <Pressable
@@ -226,13 +249,6 @@ function StatusToast({ state, onClose }: { state: 'near' | 'arrived'; onClose: (
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   white: { color: '#FFFFFF' },
-  track: {
-    alignSelf: 'flex-end',
-    height: 32,
-    paddingHorizontal: 22,
-    borderRadius: 16,
-    justifyContent: 'center',
-  },
   shuttle: { borderRadius: 18, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 16, gap: 12 },
   toggle: {
     flexDirection: 'row',
@@ -242,6 +258,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   toggleTab: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
+  rowEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   routeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   route: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },
   live: {

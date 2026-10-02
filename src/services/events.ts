@@ -276,6 +276,11 @@ export const events = createStore<CampusEvent[]>(live ? [] : initialEvents);
 export const clubsStore = createStore<Club[]>(live ? [] : mockClubs);
 export const useClubs = clubsStore.useValue;
 
+/** Clubs A to Z in the language being shown (Arabic names sort in Arabic alphabetical order). */
+export function sortClubs(list: readonly Club[], language: 'en' | 'ar'): Club[] {
+  return [...list].sort((a, b) => a.name[language].localeCompare(b.name[language], language));
+}
+
 /** Events students can see (drafts hidden). */
 export function publishedEvents(list: CampusEvent[]) {
   return list.filter((e) => !e.draft);

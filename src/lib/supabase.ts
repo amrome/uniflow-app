@@ -10,6 +10,9 @@ const anonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
 function create(): SupabaseClient | null {
   if (!url || !anonKey) return null;
+  // Expo's web build also evaluates this file in Node (no `window`, no WebSocket); only the app
+  // itself (phone or browser) talks to Supabase.
+  if (typeof window === 'undefined') return null;
   const client = createClient(url, anonKey, {
     auth: {
       storage: AsyncStorage,

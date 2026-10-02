@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
 import { formatTime, monthShort, toMinutes } from '@/services/clock';
-import { eventDate, useClubs, type CampusEvent } from '@/services/events';
+import { eventDate, sortClubs, useClubs, type CampusEvent } from '@/services/events';
 import { useTheme } from '@/theme';
 
 type TagTone = 'going' | 'today' | 'upcoming' | 'outline';
@@ -157,7 +157,7 @@ export function AllClubsSheet({
           {fmt(t.events.allClubsSub, { n: clubs.length })}
         </AppText>
         <ScrollView contentContainerStyle={styles.grid} showsVerticalScrollIndicator={false}>
-          {clubs.map((c) => (
+          {sortClubs(clubs, language).map((c) => (
             <Pressable
               key={c.id}
               accessibilityRole="button"

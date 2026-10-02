@@ -79,7 +79,16 @@ export function zoneStatus(z: FreeZone): ZoneStatus {
 
 export type PaymentMethod = 'applePay' | 'mada' | 'stcPay';
 
-export type Reservation = { id?: string; slot: string; method: PaymentMethod; amount: number };
+export type Reservation = {
+  id?: string;
+  /** Unique reservation number, e.g. "PK-10001". */
+  number?: string;
+  slot: string;
+  method: PaymentMethod;
+  amount: number;
+};
+
+let mockReservationSeq = 10001;
 
 /** The student's paid reservation for today (one at a time). */
 export const reservation = createStore<Reservation | null>(null);
@@ -87,20 +96,29 @@ export const reservation = createStore<Reservation | null>(null);
 export async function reserveSlot(method: PaymentMethod): Promise<Reservation> {
   const zone = paidZoneStore.get();
   if (!live) {
-    const r = { slot: 'P-17', method, amount: zone.price };
+    const r = { number: `PK-${mockReservationSeq++}`, slot: 'P-17', method, amount: zone.price };
     reservation.set(r);
     paidZoneStore.set((z) => ({ ...z, free: Math.max(0, z.free - 1) }));
     return r;
   }
   if (!zone.id) throw new Error('Parking is not available right now');
   // The database picks the spot, so two students can never get the same one.
-  const row = await ok<{ id: string; slot_id: string; amount: number }>(
-    db().rpc('reserve_parking', { p_lot: zone.id, p_method: method }),
-  );
+  const row = await ok<{
+    id: string;
+    slot_id: string;
+    amount: number;
+    reservation_number: string;
+  }>(db().rpc('reserve_parking', { p_lot: zone.id, p_method: method }));
   const slot = await ok<{ label: string }>(
     db().from('parking_slots').select('label').eq('id', row.slot_id).single(),
   );
-  const r: Reservation = { id: row.id, slot: slot.label, method, amount: Number(row.amount) };
+  const r: Reservation = {
+    id: row.id,
+    number: row.reservation_number,
+    slot: slot.label,
+    method,
+    amount: Number(row.amount),
+  };
   reservation.set(r);
   hydrateParking().catch(() => {}); // refresh the free counts
   return r;
@@ -146,6 +164,7 @@ type ZoneRow = {
 
 type ReservationRow = {
   id: string;
+  reservation_number: string;
   amount: number;
   payment_method: PaymentMethod | null;
   parking_slots: { label: string } | null;
@@ -163,7 +182,7 @@ export async function hydrateParking() {
     ok<ReservationRow[]>(
       client
         .from('parking_reservations')
-        .select('id, amount, payment_method, parking_slots(label)')
+        .select('id, reservation_number, amount, payment_method, parking_slots(label)')
         .eq('user_id', userId)
         .eq('status', 'active')
         .gt('ends_at', new Date().toISOString())
@@ -205,6 +224,7 @@ export async function hydrateParking() {
     current
       ? {
           id: current.id,
+          number: current.reservation_number,
           slot: current.parking_slots?.label ?? '—',
           method: current.payment_method ?? 'mada',
           amount: Number(current.amount),

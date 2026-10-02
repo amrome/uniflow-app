@@ -7,7 +7,7 @@ import { AppText, Button, LangToggle, Screen, TextField, TopBar } from '@/compon
 import { useI18n } from '@/i18n';
 import { live } from '@/services/backend';
 import { errorMessage } from '@/services/errors';
-import { staffDemoEmails, staffHome, useSession, type StaffRole } from '@/services/session';
+import { staffDemoEmails, useSession, type StaffRole } from '@/services/session';
 import { useTheme } from '@/theme';
 
 // Figma 13 · Staff Login
@@ -28,8 +28,8 @@ export default function StaffLogin() {
     }
     setBusy(true);
     try {
-      const s = await signInStaff(role ? staffDemoEmails[role] : email.trim(), password, role);
-      router.replace(staffHome[s.role as StaffRole]);
+      await signInStaff(role ? staffDemoEmails[role] : email.trim(), password, role);
+      router.replace('/'); // the entry screen sends each staff role to its own portal
     } catch (e) {
       Alert.alert(t.staff.loginTitle, errorMessage(e));
     } finally {

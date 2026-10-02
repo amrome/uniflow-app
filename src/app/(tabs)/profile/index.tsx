@@ -11,7 +11,7 @@ import { favoriteRestaurants, pastOrders, useRestaurants } from '@/services/food
 import { going } from '@/services/events';
 import { live } from '@/services/backend';
 import { myCar, reservation } from '@/services/parking';
-import { getProfile, useProfile } from '@/services/profile';
+import { getProfile, useDisplayName, useProfile } from '@/services/profile';
 import { favoriteInstructors, majors, type Major } from '@/services/schedules';
 import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
@@ -32,7 +32,7 @@ export default function Profile() {
   const pastCount = pastOrders.useValue();
   const car = myCar.useValue();
   const profile = useProfile();
-  const name = profile.fullName || session?.name || '';
+  const name = useDisplayName();
   const studentId = profile.studentId.replace('-', '') || '—';
   const major =
     profile.majorKey && profile.majorKey in majors ? majors[profile.majorKey as Major] : null;
@@ -237,8 +237,7 @@ export default function Profile() {
         <Pressable
           accessibilityRole="button"
           onPress={() => {
-            signOut();
-            router.replace('/login');
+            signOut(); // the navigation guards bring you back to Login
           }}
           style={styles.rowItem}
         >

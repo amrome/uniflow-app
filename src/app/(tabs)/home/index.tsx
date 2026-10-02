@@ -5,7 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icons';
 import { AppText, BellButton, LangToggle, Screen, ServiceTile } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { useSession } from '@/services/session';
+import { useDisplayName } from '@/services/profile';
 import { nextShuttleTime } from '@/services/transport';
 import { gradients, shadows, useTheme } from '@/theme';
 import { initials } from '@/utils/format';
@@ -15,8 +15,7 @@ export default function Home() {
   const { t } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const { session } = useSession();
-  const name = session?.name ?? 'Amro Elian';
+  const name = useDisplayName();
 
   return (
     <Screen gap={20}>
@@ -28,7 +27,7 @@ export default function Home() {
           style={[styles.avatar, { backgroundColor: colors.inkPrimary }]}
         >
           <AppText variant="label" style={{ color: '#FFFFFF' }}>
-            {initials(name)}
+            {initials(name) || '👤'}
           </AppText>
         </Pressable>
         <AppText variant="title" weight="bold" size={18}>
@@ -41,7 +40,9 @@ export default function Home() {
       </View>
 
       <View style={styles.greeting}>
-        <AppText variant="display">{fmt(t.home.greeting, { name: name.split(' ')[0] })}</AppText>
+        <AppText variant="display">
+          {name ? fmt(t.home.greeting, { name: name.split(' ')[0] }) : t.home.greetingNoName}
+        </AppText>
         <AppText variant="bodySmall" tone="secondary">
           {t.home.subtitle}
         </AppText>

@@ -2,7 +2,7 @@ import { trimTime } from '@/lib/time';
 
 import { bi, db, fetchAll, live, ok } from './backend';
 import { formatTime, nowMinutes, toMinutes } from './clock';
-import { createStore } from './store';
+import { createStore, createToggleSet } from './store';
 
 export type Direction = 'fromCampus' | 'toCampus';
 export type Timetable = Record<Direction, string[]>;
@@ -69,6 +69,9 @@ const mockGolfCarts: GolfCart[] = [
     near: { en: 'Near YUPadel', ar: 'قرب YUPadel' },
   },
 ];
+
+/** What the student is tracking: 'carts' (the golf carts). The shuttle bus is tracked per visit. */
+export const trackedTransport = createToggleSet([]);
 
 export const golfCartsStore = createStore<GolfCart[]>(live ? [] : mockGolfCarts);
 export const useGolfCarts = golfCartsStore.useValue;

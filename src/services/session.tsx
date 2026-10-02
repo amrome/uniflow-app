@@ -108,8 +108,15 @@ async function loadSession(user: User, asStaff: boolean): Promise<Session> {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(!live);
+
+  // The user id is stored *before* React re-renders, so effects further down the tree (the data
+  // loader) can already use it. Setting it in an effect here ran too late: child effects run first.
+  const setSession = useCallback((next: Session | null) => {
+    authUserId.set(next?.userId ?? null);
+    setSessionState(next);
+  }, []);
 
   // Restore a saved sign-in (and listen for the token being revoked).
   useEffect(() => {
@@ -137,100 +144,114 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       active = false;
       sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [setSession]);
 
-  useEffect(() => {
-    authUserId.set(session?.userId ?? null);
-  }, [session?.userId]);
-
-  const signInStudent = useCallback(async (email: string, password = '') => {
-    if (!live) {
-      const s: Session = {
-        role: 'student',
-        name: mockProfile.fullName,
-        email: email || mockProfile.email,
-      };
+  const signInStudent = useCallback(
+    async (email: string, password = '') => {
+      if (!live) {
+        const s: Session = {
+          role: 'student',
+          name: mockProfile.fullName,
+          email: email || mockProfile.email,
+        };
+        setSession(s);
+        return s;
+      }
+      const client = db();
+      const { data, error } = await client.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
+      const s = await loadSession(data.user, false);
+      await AsyncStorage.removeItem(STAFF_MODE_KEY).catch(() => {});
       setSession(s);
       return s;
-    }
-    const client = db();
-    const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) throw error;
-    const s = await loadSession(data.user, false);
-    await AsyncStorage.removeItem(STAFF_MODE_KEY).catch(() => {});
-    setSession(s);
-    return s;
-  }, []);
+    },
+    [setSession],
+  );
 
-  const signUp = useCallback(async (name: string, email: string, password: string) => {
-    if (!live) {
-      setSession({ role: 'student', name: name || mockProfile.fullName, email });
+  const signUp = useCallback(
+    async (name: string, email: string, password: string) => {
+      if (!live) {
+        setSession({ role: 'student', name: name || mockProfile.fullName, email });
+        return 'signedIn' as const;
+      }
+      const client = db();
+      const { data, error } = await client.auth.signUp({
+        email: email.trim(),
+        password,
+        options: { data: { full_name: name.trim() } },
+      });
+      if (error) throw error;
+      if (!data.session || !data.user) return 'confirmEmail' as const;
+      setSession(await loadSession(data.user, false));
       return 'signedIn' as const;
-    }
-    const client = db();
-    const { data, error } = await client.auth.signUp({
-      email: email.trim(),
-      password,
-      options: { data: { full_name: name.trim() } },
-    });
-    if (error) throw error;
-    if (!data.session || !data.user) return 'confirmEmail' as const;
-    setSession(await loadSession(data.user, false));
-    return 'signedIn' as const;
-  }, []);
+    },
+    [setSession],
+  );
 
-  const signInGuest = useCallback(async (name: string, contact: string) => {
-    if (!live) {
-      const s: Session = { role: 'guest', name: name || 'Guest', phone: contact };
+  const signInGuest = useCallback(
+    async (name: string, contact: string) => {
+      if (!live) {
+        const s: Session = { role: 'guest', name: name || 'Guest', phone: contact };
+        setSession(s);
+        return s;
+      }
+      const client = db();
+      const { data, error } = await client.auth.signInAnonymously({
+        options: { data: { full_name: name, contact } },
+      });
+      if (error) throw error;
+      if (!data.user) throw new Error('Could not start a guest session');
+      const s = await loadSession(data.user, false);
       setSession(s);
       return s;
-    }
-    const client = db();
-    const { data, error } = await client.auth.signInAnonymously({
-      options: { data: { full_name: name, contact } },
-    });
-    if (error) throw error;
-    if (!data.user) throw new Error('Could not start a guest session');
-    const s = await loadSession(data.user, false);
-    setSession(s);
-    return s;
-  }, []);
+    },
+    [setSession],
+  );
 
-  const signInStaff = useCallback(async (email: string, password = '', role?: StaffRole) => {
-    if (!live) {
-      const resolved = role ?? detectStaffRole(email);
-      const s: Session = {
-        role: resolved,
-        name: email.split('@')[0],
-        email,
-        instructorId: resolved === 'instructor' ? 'sarah' : undefined,
-        clubId: resolved === 'clubAdmin' ? 'gdg' : undefined,
-      };
+  const signInStaff = useCallback(
+    async (email: string, password = '', role?: StaffRole) => {
+      if (!live) {
+        const resolved = role ?? detectStaffRole(email);
+        const s: Session = {
+          role: resolved,
+          name: email.split('@')[0],
+          email,
+          instructorId: resolved === 'instructor' ? 'sarah' : undefined,
+          clubId: resolved === 'clubAdmin' ? 'gdg' : undefined,
+        };
+        setSession(s);
+        return s;
+      }
+      const client = db();
+      const { data, error } = await client.auth.signInWithPassword({
+        email: email.trim(),
+        password,
+      });
+      if (error) throw error;
+      const s = await loadSession(data.user, true);
+      if (s.role === 'student' || s.role === 'guest') {
+        await client.auth.signOut();
+        throw new Error('This account does not have staff access');
+      }
+      await AsyncStorage.setItem(STAFF_MODE_KEY, '1').catch(() => {});
       setSession(s);
       return s;
-    }
-    const client = db();
-    const { data, error } = await client.auth.signInWithPassword({ email: email.trim(), password });
-    if (error) throw error;
-    const s = await loadSession(data.user, true);
-    if (s.role === 'student' || s.role === 'guest') {
-      await client.auth.signOut();
-      throw new Error('This account does not have staff access');
-    }
-    await AsyncStorage.setItem(STAFF_MODE_KEY, '1').catch(() => {});
-    setSession(s);
-    return s;
-  }, []);
+    },
+    [setSession],
+  );
 
   const signOut = useCallback(async () => {
+    setSession(null); // screens react immediately; the server call can finish afterwards
     if (live) {
       await db()
         .auth.signOut()
         .catch(() => {});
       await AsyncStorage.removeItem(STAFF_MODE_KEY).catch(() => {});
     }
-    setSession(null);
-  }, []);
+  }, [setSession]);
 
   const value = useMemo<SessionContextValue>(
     () => ({ ready, session, signInStudent, signUp, signInGuest, signInStaff, signOut }),

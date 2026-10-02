@@ -74,7 +74,7 @@ export default function GuestRegistration() {
                   name.trim(),
                   mode === 'phone' ? `+966${contact.trim()}` : contact.trim(),
                 );
-                router.replace('/guest');
+                router.replace('/'); // the entry screen sends guests to their home
               } catch (e) {
                 Alert.alert(t.guestReg.title, errorMessage(e));
               } finally {

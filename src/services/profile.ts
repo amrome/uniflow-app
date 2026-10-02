@@ -1,6 +1,7 @@
 import { mockProfile } from '@/mocks/profile';
 
 import { db, live, ok, requireUserId } from './backend';
+import { useSession } from './session';
 import { createStore } from './store';
 
 // Service boundary: screens only ever see this shape, whether it comes from the mock or Supabase.
@@ -28,6 +29,19 @@ export const profileStore = createStore<Profile>(
 );
 
 export const useProfile = profileStore.useValue;
+
+/**
+ * The name to show for the signed-in user (greeting, avatar, profile). It follows edits made in
+ * Edit Profile. An address like "202311430@yu.edu.sa" is never shown as a name: '' means "unknown".
+ */
+export function useDisplayName(): string {
+  const profile = useProfile();
+  const { session } = useSession();
+  const fromSession = session?.name && !/^\d+$/.test(session.name) ? session.name : '';
+  // A guest has no profile to edit: the name they typed when registering is the right one.
+  if (session?.role === 'guest') return fromSession || profile.fullName.trim();
+  return profile.fullName.trim() || fromSession;
+}
 
 type Row = {
   full_name: string | null;

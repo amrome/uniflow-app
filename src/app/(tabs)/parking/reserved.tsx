@@ -56,6 +56,7 @@ export default function ParkingReserved() {
               </AppText>
             </View>
           </View>
+          {r.number && <PassRow label={t.parking.reservationNo} value={r.number} />}
           <PassRow label={t.parking.valid} value={t.parking.validUntil} />
           <PassRow
             label={t.parking.paidLabel}

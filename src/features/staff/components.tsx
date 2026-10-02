@@ -13,7 +13,6 @@ import { useTheme } from '@/theme';
  */
 export function StaffRootBar({ title }: { title: string }) {
   const { t } = useI18n();
-  const router = useRouter();
   const { signOut } = useSession();
   const [confirm, setConfirm] = useState(false);
   return (
@@ -29,8 +28,7 @@ export function StaffRootBar({ title }: { title: string }) {
         onKeep={() => setConfirm(false)}
         onConfirm={() => {
           setConfirm(false);
-          signOut();
-          router.replace('/login');
+          signOut(); // the navigation guards bring you back to Login
         }}
       />
     </>

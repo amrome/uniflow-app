@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Logo } from '@/components/icons';
 import { AppText, Chip, LangToggle, Screen, ServiceTile } from '@/components/ui';
-import { useI18n } from '@/i18n';
+import { fmt, useI18n } from '@/i18n';
+import { useDisplayName } from '@/services/profile';
 import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
 
@@ -13,6 +14,7 @@ export default function GuestHome() {
   const { colors } = useTheme();
   const router = useRouter();
   const { signOut } = useSession();
+  const name = useDisplayName();
 
   return (
     <Screen gap={20}>
@@ -27,7 +29,11 @@ export default function GuestHome() {
       </View>
       <View style={styles.welcomeRow}>
         <View style={styles.flex}>
-          <AppText variant="display">{t.guestHome.welcome}</AppText>
+          <AppText variant="display">
+            {name
+              ? fmt(t.guestHome.welcomeName, { name: name.split(' ')[0] })
+              : t.guestHome.welcome}
+          </AppText>
           <AppText variant="bodySmall" tone="secondary">
             {t.guestHome.subtitle}
           </AppText>
@@ -60,8 +66,7 @@ export default function GuestHome() {
         <Pressable
           accessibilityRole="button"
           onPress={() => {
-            signOut();
-            router.replace('/login');
+            signOut(); // the navigation guards bring you back to Login
           }}
           style={[styles.bannerCta, { backgroundColor: colors.backgroundPrimary }]}
         >

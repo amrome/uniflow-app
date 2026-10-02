@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 
-export async function boot(files = ['01_schema.sql', '02_schema_v2.sql', '03_seed.sql']) {
+export async function boot(
+  files = ['01_schema.sql', '02_schema_v2.sql', '03_seed.sql', '04_reservation_number.sql'],
+) {
   const db = new PGlite({ extensions: { btree_gist } });
   await db.exec(readFileSync(here('./prelude.sql'), 'utf8'));
   for (const f of files) {
