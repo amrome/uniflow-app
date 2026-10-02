@@ -121,6 +121,7 @@ export const ar: Translations = {
     noMoreTrips: 'لا رحلات أخرى اليوم',
     fullSchedule: 'عرض الجدول كاملًا',
     golfCarts: 'عربات الجولف في الجامعة',
+    shuttleTitle: 'حافلة الجامعة',
     nearTitle: 'حافلة SAB قريبة',
     nearBody: 'على بعد محطتين · ~4 د',
     arrivedTitle: 'وصلت حافلة SAB',

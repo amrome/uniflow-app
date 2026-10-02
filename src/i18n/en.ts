@@ -119,6 +119,7 @@ export const en = {
     noMoreTrips: 'No more trips today',
     fullSchedule: 'View full schedule',
     golfCarts: 'Golf carts on campus',
+    shuttleTitle: 'Campus shuttle',
     nearTitle: 'SAB Shuttle is near',
     nearBody: '2 stops away · ~4 min',
     arrivedTitle: 'SAB Shuttle arrived',

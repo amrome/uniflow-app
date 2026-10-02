@@ -90,6 +90,12 @@ export default function Transportation() {
         )}
       </View>
 
+      <View style={styles.sectionRow}>
+        <AppText variant="bodyStrong" style={styles.sectionTitle}>
+          {t.transport.shuttleTitle}
+        </AppText>
+        <TrackButton on={track !== 'idle'} onPress={toggleBusTracking} />
+      </View>
       <View style={[styles.shuttle, { backgroundColor: colors.inkPrimary }]}>
         <View style={styles.toggle}>
           {(['fromCampus', 'toCampus'] as const).map((d) => {
@@ -125,14 +131,11 @@ export default function Transportation() {
               </AppText>
             </View>
           </View>
-          <View style={styles.rowEnd}>
-            <TrackButton on={track !== 'idle'} onPress={toggleBusTracking} />
-            <View style={[styles.live, { backgroundColor: colors.brandPrimary }]}>
-              <View style={styles.liveDot} />
-              <AppText size={10} weight="bold" style={styles.white}>
-                {t.home.live}
-              </AppText>
-            </View>
+          <View style={[styles.live, { backgroundColor: colors.brandPrimary }]}>
+            <View style={styles.liveDot} />
+            <AppText size={10} weight="bold" style={styles.white}>
+              {t.home.live}
+            </AppText>
           </View>
         </View>
         <AppText variant="captionStrong" style={{ color: colors.inkOnInkMuted }}>
@@ -258,7 +261,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
   toggleTab: { flex: 1, paddingVertical: 8, borderRadius: 9, alignItems: 'center' },
-  rowEnd: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   routeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   route: { flexDirection: 'row', alignItems: 'center', gap: 10, flexShrink: 1 },

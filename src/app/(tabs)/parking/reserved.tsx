@@ -6,8 +6,8 @@ import { fmt, useI18n } from '@/i18n';
 import { reservation } from '@/services/parking';
 import { useTheme } from '@/theme';
 
-// YU main gate, used for "Get Directions".
-const ZONE_P = { lat: 24.8607, lng: 46.7187 };
+// Google Maps link to the parking, opened by "Get Directions".
+const DIRECTIONS_URL = 'https://maps.app.goo.gl/PcBB2SKaQmC9wiSP9';
 
 // Figma 07 · Parking Reserved
 export default function ParkingReserved() {
@@ -67,11 +67,7 @@ export default function ParkingReserved() {
         <Button
           label={t.parking.directions}
           style={styles.full}
-          onPress={() =>
-            Linking.openURL(`https://maps.google.com/?q=${ZONE_P.lat},${ZONE_P.lng}`).catch(
-              () => {},
-            )
-          }
+          onPress={() => Linking.openURL(DIRECTIONS_URL).catch(() => {})}
         />
         <Button label={t.common.done} variant="secondary" style={styles.full} onPress={done} />
       </View>
