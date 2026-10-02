@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/Toast';
 import { clock } from '@/features/schedules/components';
 import { DayTabs, SlotRow } from '@/features/schedules/Timetable';
 import { useI18n } from '@/i18n';
+import { reportError } from '@/services/errors';
 import {
   TODAY,
   saveWeek,
@@ -25,17 +26,31 @@ import {
   type SlotType,
   type WeekDay,
 } from '@/services/schedules';
+import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
 
-const INSTRUCTOR_ID = 'sarah';
 const types: SlotType[] = ['CLS', 'CP', 'OH', 'DD', 'PM', 'RS'];
 
 // Figma 03.1a · Edit Schedule
 export default function EditSchedule() {
+  const { session } = useSession();
+  const instructorId = session?.instructorId ?? 'sarah';
+  const saved = timetables.useValue()[instructorId];
+  if (!saved) return null;
+  return <ScheduleForm instructorId={instructorId} initial={saved} />;
+}
+
+function ScheduleForm({
+  instructorId,
+  initial,
+}: {
+  instructorId: string;
+  initial: Record<WeekDay, Slot[]>;
+}) {
   const { t, language } = useI18n();
   const router = useRouter();
   const toast = useToast();
-  const [week, setWeek] = useState(() => timetables.get()[INSTRUCTOR_ID]);
+  const [week, setWeek] = useState(initial);
   const [day, setDay] = useState<WeekDay>(TODAY);
   const [editing, setEditing] = useState<number | null>(null);
 
@@ -49,8 +64,13 @@ export default function EditSchedule() {
       footer={
         <Button
           label={t.schedules.saveSchedule}
-          onPress={() => {
-            saveWeek(INSTRUCTOR_ID, week);
+          onPress={async () => {
+            try {
+              await saveWeek(instructorId, week);
+            } catch (e) {
+              reportError(e);
+              return;
+            }
             toast.show({ emoji: '📅', title: t.schedules.saved, body: t.schedules.savedBody });
             router.back();
           }}

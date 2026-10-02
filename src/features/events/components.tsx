@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppText, Card } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
 import { formatTime, monthShort, toMinutes } from '@/services/clock';
-import { clubs, eventDate, type CampusEvent } from '@/services/events';
+import { eventDate, useClubs, type CampusEvent } from '@/services/events';
 import { useTheme } from '@/theme';
 
 type TagTone = 'going' | 'today' | 'upcoming' | 'outline';
@@ -124,6 +124,7 @@ export function AllClubsSheet({
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const clubs = useClubs();
   return (
     <Modal
       visible={visible}

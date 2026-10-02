@@ -5,7 +5,7 @@ import { AppText, Button, Card, LangToggle, Screen, TopBar } from '@/components/
 import { Divider, SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { useCart } from '@/services/cart';
-import { findItem, getRestaurant } from '@/services/food';
+import { findItem, useRestaurant } from '@/services/food';
 import { useTheme } from '@/theme';
 
 // Figma 04.2 · View Cart
@@ -14,7 +14,7 @@ export default function Cart() {
   const { colors } = useTheme();
   const router = useRouter();
   const { lines, count, subtotal, vendorId } = useCart();
-  const r = getRestaurant(vendorId ?? undefined);
+  const r = useRestaurant(vendorId ?? undefined);
   const price = (n: number) => fmt(t.food.price, { n });
   const header = <TopBar title={t.food.cartTitle} boxedBack right={<LangToggle />} />;
 

@@ -6,10 +6,10 @@ import { AppText, Button, Card, Chip, Screen, TopBar } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { fmt, useI18n } from '@/i18n';
 import {
-  freeZones,
-  paidZone,
   reservation,
   spotAlerts,
+  useFreeZones,
+  usePaidZone,
   zoneStatus,
   type FreeZone,
 } from '@/services/parking';
@@ -21,9 +21,11 @@ export default function Parking() {
   const { colors } = useTheme();
   const router = useRouter();
   const booked = reservation.useValue();
+  const paidZone = usePaidZone();
+  const freeZones = useFreeZones();
   const freeNow = freeZones.reduce((n, z) => n + z.free, 0);
-  const free = booked ? paidZone.free - 1 : paidZone.free;
-  const used = (paidZone.total - free) / paidZone.total;
+  const free = paidZone.free;
+  const used = paidZone.total ? (paidZone.total - free) / paidZone.total : 0;
 
   return (
     <Screen header={<TopBar title={t.parking.title} />} gap={12}>
@@ -154,11 +156,8 @@ function ZoneCard({ zone }: { zone: FreeZone }) {
             accessibilityRole="button"
             accessibilityState={{ selected: alertOn }}
             onPress={() => {
-              if (alertOn) {
-                spotAlerts.set((p) => p.filter((id) => id !== zone.id));
-                return;
-              }
-              spotAlerts.set((p) => [...p, zone.id]);
+              spotAlerts.toggle(zone.id);
+              if (alertOn) return;
               toast.show({
                 emoji: '🅿️',
                 title: t.parking.alertTitle,

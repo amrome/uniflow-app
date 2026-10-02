@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, View } from 'react-native';
 import { Icon, Logo } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen, TextField } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { errorMessage } from '@/services/errors';
 import { useSession } from '@/services/session';
 import { layout, useTheme } from '@/theme';
 
@@ -16,10 +17,18 @@ export default function Login() {
   const { signInStudent } = useSession();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const logIn = () => {
-    signInStudent(email.trim());
-    router.replace('/home');
+  const logIn = async () => {
+    setBusy(true);
+    try {
+      await signInStudent(email.trim(), password);
+      router.replace('/'); // the entry screen sends each role to its own home
+    } catch (e) {
+      Alert.alert(t.auth.logIn, errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -52,7 +61,7 @@ export default function Login() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button label={t.auth.logIn} onPress={logIn} />
+      <Button label={t.auth.logIn} onPress={logIn} disabled={busy} />
       <View style={styles.divider}>
         <View style={[styles.rule, { backgroundColor: colors.borderDefault }]} />
         <AppText variant="label" weight="regular" tone="secondary">
@@ -68,10 +77,7 @@ export default function Login() {
       <AppText variant="caption" tone="secondary" align="center">
         {t.auth.guestHint}
       </AppText>
-      <Pressable
-        accessibilityRole="link"
-        onPress={() => Alert.alert(t.auth.createAccount, t.staff.ssoNote)}
-      >
+      <Pressable accessibilityRole="link" onPress={() => router.push('/signup')}>
         <AppText variant="label" tone="brand" align="center">
           {t.auth.newHere} {t.auth.createAccount}
         </AppText>

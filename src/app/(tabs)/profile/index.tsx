@@ -1,16 +1,18 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icons';
 import { AppText, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
 import { ticket } from '@/services/affairs';
-import { favoriteRestaurants, restaurants } from '@/services/food';
+import { reportError } from '@/services/errors';
+import { favoriteRestaurants, pastOrders, useRestaurants } from '@/services/food';
 import { going } from '@/services/events';
-import { reservation } from '@/services/parking';
-import { getProfile } from '@/services/profile';
-import { favoriteInstructors } from '@/services/schedules';
+import { live } from '@/services/backend';
+import { myCar, reservation } from '@/services/parking';
+import { getProfile, useProfile } from '@/services/profile';
+import { favoriteInstructors, majors, type Major } from '@/services/schedules';
 import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
 import { initials } from '@/utils/format';
@@ -26,15 +28,23 @@ export default function Profile() {
   const goingCount = going.useValue().length;
   const favRestaurants = favoriteRestaurants.useValue();
   const followed = favoriteInstructors.useValue();
-  const [studentId, setStudentId] = useState('2023XXXXX');
-  const [name, setName] = useState(session?.name ?? 'Amro Elian');
+  const restaurants = useRestaurants();
+  const pastCount = pastOrders.useValue();
+  const car = myCar.useValue();
+  const profile = useProfile();
+  const name = profile.fullName || session?.name || '';
+  const studentId = profile.studentId.replace('-', '') || '—';
+  const major =
+    profile.majorKey && profile.majorKey in majors ? majors[profile.majorKey as Major] : null;
+  const majorLine =
+    major && profile.level
+      ? fmt(t.profile.majorLine, { major: major[language], level: profile.level })
+      : null;
+  const favOrders = restaurants.filter((r) => r.favoriteOrder);
 
   useFocusEffect(
     useCallback(() => {
-      getProfile().then((p) => {
-        setStudentId(p.studentId.replace('-', ''));
-        setName(p.fullName);
-      });
+      getProfile().catch(reportError);
     }, []),
   );
 
@@ -58,9 +68,11 @@ export default function Profile() {
           <AppText variant="caption" style={{ color: colors.inkOnInkMuted }}>
             {fmt(t.profile.studentIdLine, { id: studentId })}
           </AppText>
-          <AppText variant="caption" style={{ color: colors.inkOnInkMuted }}>
-            {t.profile.majorLine}
-          </AppText>
+          {majorLine && (
+            <AppText variant="caption" style={{ color: colors.inkOnInkMuted }}>
+              {majorLine}
+            </AppText>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -94,7 +106,7 @@ export default function Profile() {
         />
         <Activity
           icon="food"
-          value="12"
+          value={String(pastCount)}
           label={t.profile.pastOrders}
           onPress={() => router.navigate('/food')}
         />
@@ -119,9 +131,11 @@ export default function Profile() {
               </AppText>
               <View style={[styles.dot, { backgroundColor: colors.statusSuccess }]} />
             </View>
-            <AppText variant="captionStrong" tone="secondary">
-              {t.profile.car}
-            </AppText>
+            {(car ?? (live ? null : t.profile.car)) && (
+              <AppText variant="captionStrong" tone="secondary">
+                {car ?? t.profile.car}
+              </AppText>
+            )}
             <AppText variant="caption" weight="semibold" tone="brand">
               {fmt(t.profile.carStatus, { slot: pass.slot })}
             </AppText>
@@ -140,8 +154,8 @@ export default function Profile() {
         <Row
           icon="repeat"
           label={t.profile.favOrders}
-          value={fmt(t.profile.favOrdersCount, { n: 2 })}
-          onPress={() => router.navigate('/food/kafton')}
+          value={fmt(t.profile.favOrdersCount, { n: favOrders.length })}
+          onPress={() => router.navigate(favOrders[0] ? `/food/${favOrders[0].id}` : '/food')}
         />
         <Row
           icon="bellPlus"

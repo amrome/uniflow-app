@@ -12,7 +12,7 @@ import {
   favoriteLines,
   favoriteRestaurants,
   findItem,
-  getRestaurant,
+  useRestaurant,
   type MenuCategory,
   type MenuItem,
 } from '@/services/food';
@@ -27,7 +27,7 @@ export default function RestaurantMenu() {
   const cart = useCart();
   const favorites = favoriteRestaurants.useValue();
   const [category, setCategory] = useState<MenuCategory | 'all'>('all');
-  const r = getRestaurant(id);
+  const r = useRestaurant(id);
   if (!r) return null;
 
   const fav = favorites.includes(r.id);

@@ -5,7 +5,7 @@ import { AppText, Button, Card, Screen, TopBar } from '@/components/ui';
 import { SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { formatTime } from '@/services/clock';
-import { getOrder, getRestaurant } from '@/services/food';
+import { getOrder, useRestaurant } from '@/services/food';
 import { useTheme } from '@/theme';
 
 // Figma 05 · Order Confirmation
@@ -15,7 +15,7 @@ export default function OrderConfirmation() {
   const { colors } = useTheme();
   const router = useRouter();
   const order = getOrder(orderId);
-  const r = getRestaurant(order?.restaurantId);
+  const r = useRestaurant(order?.restaurantId);
   if (!order || !r) return null;
 
   const done = () => router.dismissTo('/food');

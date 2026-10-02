@@ -5,8 +5,9 @@ import { StyleSheet, Switch, View } from 'react-native';
 import { Icon } from '@/components/icons';
 import { AppText, Button, ConfirmDialog, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { affairsServices, cancelTicket, ticket } from '@/services/affairs';
+import { cancelTicket, setTicketAlert, ticket, useAffairsServices } from '@/services/affairs';
 import { formatTime } from '@/services/clock';
+import { reportError } from '@/services/errors';
 import { useTheme } from '@/theme';
 
 // Figma 10.1 · Your Ticket (+ Popup/CancelBooking)
@@ -15,6 +16,7 @@ export default function YourTicket() {
   const { colors } = useTheme();
   const router = useRouter();
   const tk = ticket.useValue();
+  const affairsServices = useAffairsServices();
   const [confirming, setConfirming] = useState(false);
   if (!tk) return null;
   const service = affairsServices.find((s) => s.id === tk.serviceId);
@@ -86,13 +88,13 @@ export default function YourTicket() {
           title={t.affairs.alertNear}
           sub={t.affairs.alertNearSub}
           value={tk.alertNear}
-          onChange={(v) => ticket.set((p) => p && { ...p, alertNear: v })}
+          onChange={(v) => setTicketAlert('alertNear', v)}
         />
         <AlertRow
           title={t.affairs.alertTurn}
           sub={t.affairs.alertTurnSub}
           value={tk.alertTurn}
-          onChange={(v) => ticket.set((p) => p && { ...p, alertTurn: v })}
+          onChange={(v) => setTicketAlert('alertTurn', v)}
         />
       </View>
 
@@ -106,7 +108,7 @@ export default function YourTicket() {
         onConfirm={() => {
           setConfirming(false);
           router.back();
-          cancelTicket();
+          cancelTicket().catch(reportError);
         }}
       />
     </Screen>

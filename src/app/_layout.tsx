@@ -15,6 +15,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ToastProvider } from '@/components/ui/Toast';
 import { I18nProvider, useI18n } from '@/i18n';
 import { CartProvider } from '@/services/cart';
+import { DataProvider } from '@/services/data';
 import { SessionProvider } from '@/services/session';
 import { ThemeProvider, useTheme } from '@/theme';
 
@@ -56,7 +57,9 @@ export default function RootLayout() {
           <SessionProvider>
             <CartProvider>
               <ToastProvider>
-                <ThemedStack />
+                <DataProvider>
+                  <ThemedStack />
+                </DataProvider>
               </ToastProvider>
             </CartProvider>
           </SessionProvider>

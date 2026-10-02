@@ -7,7 +7,8 @@ import { Divider, SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { useCart } from '@/services/cart';
 import { formatTime, nowMinutes } from '@/services/clock';
-import { findItem, getRestaurant, placeOrder } from '@/services/food';
+import { reportError } from '@/services/errors';
+import { findItem, placeOrder, useRestaurant } from '@/services/food';
 import { useTheme } from '@/theme';
 
 type Payment = 'mada' | 'cash';
@@ -18,9 +19,10 @@ export default function Checkout() {
   const { colors } = useTheme();
   const router = useRouter();
   const cart = useCart();
-  const r = getRestaurant(cart.vendorId ?? undefined);
+  const r = useRestaurant(cart.vendorId ?? undefined);
   const [mode, setMode] = useState<'asap' | 'schedule'>('asap');
   const [payment, setPayment] = useState<Payment>('mada');
+  const [placing, setPlacing] = useState(false);
 
   // Pickup slots every 15 min starting 20 min from now, rounded up to the quarter hour.
   const first = Math.ceil((nowMinutes() + 65) / 15) * 15;
@@ -37,20 +39,32 @@ export default function Checkout() {
       .replace(/^0/, '');
 
   const confirm = async () => {
-    const order = await placeOrder({
-      restaurantId: r.id,
-      items: cart.count,
-      total: cart.subtotal,
-      readyAt,
-    });
-    cart.clear();
-    router.replace({ pathname: '/food/confirmed', params: { order: order.id } });
+    setPlacing(true);
+    try {
+      const order = await placeOrder({
+        restaurantId: r.id,
+        items: cart.count,
+        total: cart.subtotal,
+        readyAt,
+        lines: cart.lines,
+        payment,
+        scheduledAt: mode === 'schedule' ? slot : undefined,
+      });
+      cart.clear();
+      router.replace({ pathname: '/food/confirmed', params: { order: order.id } });
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setPlacing(false);
+    }
   };
 
   return (
     <Screen
       header={<TopBar title={t.food.checkout} boxedBack right={<LangToggle />} />}
-      footer={<Button label={fmt(t.food.confirmOrder, { total })} onPress={confirm} />}
+      footer={
+        <Button label={fmt(t.food.confirmOrder, { total })} onPress={confirm} disabled={placing} />
+      }
     >
       <Card style={styles.card}>
         <AppText variant="bodySmall" weight="semibold">

@@ -1,35 +1,45 @@
 import { useRouter } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Screen } from '@/components/ui';
 import { EventAdminRow } from '@/features/staff/EventAdminRow';
 import { StaffHeader, StaffRootBar } from '@/features/staff/components';
 import { useI18n } from '@/i18n';
-import { clubs, events } from '@/services/events';
+import { clubMemberCount, events, useClubs } from '@/services/events';
+import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
-
-const CLUB_ID = 'gdg';
-const FOLLOWERS = 412;
 
 // Figma 13.2 · Club Admin
 export default function ClubAdmin() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const mine = events.useValue().filter((e) => e.clubId === CLUB_ID);
+  const { session } = useSession();
+  const clubId = session?.clubId ?? 'gdg';
+  const clubs = useClubs();
+  const club = clubs.find((c) => c.id === clubId);
+  const [followers, setFollowers] = useState(0);
+  useEffect(() => {
+    clubMemberCount(club?.dbId).then(setFollowers, () => {});
+  }, [club?.dbId]);
+  const mine = events.useValue().filter((e) => e.clubId === clubId);
   const active = mine.filter((e) => !e.draft);
   const rsvps = active.reduce((n, e) => n + e.goingCount, 0);
-  const club = clubs.find((c) => c.id === CLUB_ID)!;
 
   return (
     <Screen header={<StaffRootBar title={t.staffPortal.clubTitle} />} gap={12}>
-      <StaffHeader initials="G" name={club.name[language]} role={t.staffPortal.clubRole} />
+      <StaffHeader
+        initials={(club?.name.en[0] ?? 'C').toUpperCase()}
+        name={club?.name[language] ?? ''}
+        role={t.staffPortal.clubRole}
+      />
       <View style={styles.stats}>
         {(
           [
             [active.length, t.staffPortal.activeEvents],
             [rsvps, t.staffPortal.totalRsvps],
-            [FOLLOWERS, t.staffPortal.followersLabel],
+            [followers, t.staffPortal.followersLabel],
           ] as const
         ).map(([value, label]) => (
           <View key={label} style={[styles.stat, { backgroundColor: colors.backgroundSurface }]}>

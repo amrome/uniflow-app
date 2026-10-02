@@ -9,11 +9,11 @@ import { Avatar, NotifyButton, ohLabel } from '@/features/schedules/components';
 import { fmt, useI18n } from '@/i18n';
 import {
   favoriteInstructors,
-  instructors,
   isAvailableToday,
   majorIds,
   majors,
   portal,
+  useInstructors,
   type Instructor,
   type Major,
 } from '@/services/schedules';
@@ -24,6 +24,7 @@ export default function InstructorSchedules() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
+  const instructors = useInstructors();
   const favorites = favoriteInstructors.useValue();
   portal.useValue(); // re-render when an instructor updates their status
   const [major, setMajor] = useState<Major | 'all'>('all');

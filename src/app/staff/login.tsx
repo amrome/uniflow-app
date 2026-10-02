@@ -1,20 +1,14 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, Logo } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen, TextField, TopBar } from '@/components/ui';
 import { useI18n } from '@/i18n';
-import {
-  detectStaffRole,
-  staffDemoEmails,
-  staffHome,
-  useSession,
-  type Role,
-} from '@/services/session';
+import { live } from '@/services/backend';
+import { errorMessage } from '@/services/errors';
+import { staffDemoEmails, staffHome, useSession, type StaffRole } from '@/services/session';
 import { useTheme } from '@/theme';
-
-type StaffRole = Exclude<Role, 'student' | 'guest'>;
 
 // Figma 13 · Staff Login
 export default function StaffLogin() {
@@ -23,12 +17,24 @@ export default function StaffLogin() {
   const router = useRouter();
   const { signInStaff } = useSession();
   const [email, setEmail] = useState<string>(staffDemoEmails.clubAdmin);
-  const [password, setPassword] = useState('password');
+  const [password, setPassword] = useState(live ? '' : 'password');
+  const [busy, setBusy] = useState(false);
 
-  const logIn = (role?: StaffRole) => {
-    const address = role ? staffDemoEmails[role] : email.trim();
-    signInStaff(address, role);
-    router.replace(staffHome[role ?? detectStaffRole(address)]);
+  const logIn = async (role?: StaffRole) => {
+    // With a real backend the demo chips only fill in the email: you still need the password.
+    if (live && role) {
+      setEmail(staffDemoEmails[role]);
+      return;
+    }
+    setBusy(true);
+    try {
+      const s = await signInStaff(role ? staffDemoEmails[role] : email.trim(), password, role);
+      router.replace(staffHome[s.role as StaffRole]);
+    } catch (e) {
+      Alert.alert(t.staff.loginTitle, errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
   };
 
   const demos: [StaffRole, string][] = [
@@ -84,7 +90,7 @@ export default function StaffLogin() {
         onChangeText={setPassword}
         secureTextEntry
       />
-      <Button label={t.staff.logIn} onPress={() => logIn()} style={styles.cta} />
+      <Button label={t.staff.logIn} onPress={() => logIn()} disabled={busy} style={styles.cta} />
       <View style={[styles.note, { backgroundColor: colors.brandPrimarySoft }]}>
         <Icon name="briefcase" size={18} color={colors.brandPrimary} />
         <AppText variant="captionStrong" style={styles.flex}>

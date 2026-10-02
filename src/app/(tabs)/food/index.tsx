@@ -7,7 +7,7 @@ import { Icon } from '@/components/icons';
 import { AppText, Card, Chip, Screen, TopBar } from '@/components/ui';
 import { CartBar, SearchField } from '@/features/food/components';
 import { fmt, useI18n } from '@/i18n';
-import { favoriteRestaurants, restaurants, type Restaurant } from '@/services/food';
+import { favoriteRestaurants, useRestaurants, type Restaurant } from '@/services/food';
 import { useTheme } from '@/theme';
 
 // Figma 04 · Food Menu
@@ -24,6 +24,7 @@ export default function FoodMenu() {
     r.name[language].toLowerCase().includes(q) ||
     r.cuisine[language].toLowerCase().includes(q) ||
     r.menu.some((m) => m.name[language].toLowerCase().includes(q));
+  const restaurants = useRestaurants();
   const list = restaurants.filter(matches);
   const favs = restaurants.filter((r) => favorites.includes(r.id));
   const rows: Restaurant[][] = [];

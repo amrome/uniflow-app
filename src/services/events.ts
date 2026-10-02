@@ -1,3 +1,7 @@
+import { dayOffsetFromToday, minutesOfDay, riyadhIso, toHhmm } from '@/lib/time';
+
+import { bi, db, fetchAll, live, ok, requireUserId } from './backend';
+import { reportError } from './errors';
 import { createStore } from './store';
 
 // Figma 08 · Events, 08.1 · Event Details, 08.2 · University, 08.3 · Club, Popup/AllClubs.
@@ -7,6 +11,8 @@ export type EventKind = 'university' | 'club';
 
 export type CampusEvent = {
   id: string;
+  /** Database uuid (backend only); `id` is the slug used in routes. */
+  dbId?: string;
   kind: EventKind;
   title: L;
   host: L;
@@ -29,7 +35,9 @@ export type CampusEvent = {
   goingCount: number;
 };
 
-export const clubs: { id: string; name: L }[] = [
+export type Club = { id: string; dbId?: string; name: L };
+
+const mockClubs: Club[] = [
   { id: 'gdg', name: { en: 'GDG on Campus YU', ar: 'GDG on Campus YU' } },
   { id: 'sports', name: { en: 'YU Sports Club', ar: 'النادي الرياضي' } },
   { id: 'photo', name: { en: 'Photography Club', ar: 'نادي التصوير' } },
@@ -60,7 +68,7 @@ const allStudents = (seats: number): L => ({
   en: `Open to all students · ${seats} seats`,
   ar: `مفتوحة لجميع الطلاب · ${seats} مقعدًا`,
 });
-const club = (id: string) => clubs.find((c) => c.id === id)!.name;
+const club = (id: string) => mockClubs.find((c) => c.id === id)!.name;
 
 export const initialEvents: CampusEvent[] = [
   {
@@ -263,7 +271,10 @@ export const initialEvents: CampusEvent[] = [
   },
 ];
 
-export const events = createStore<CampusEvent[]>(initialEvents);
+export const events = createStore<CampusEvent[]>(live ? [] : initialEvents);
+
+export const clubsStore = createStore<Club[]>(live ? [] : mockClubs);
+export const useClubs = clubsStore.useValue;
 
 /** Events students can see (drafts hidden). */
 export function publishedEvents(list: CampusEvent[]) {
@@ -271,10 +282,27 @@ export function publishedEvents(list: CampusEvent[]) {
 }
 
 /** Event ids the student is going to. */
-export const going = createStore<readonly string[]>(['devfest', 'career-fair']);
+export const going = createStore<readonly string[]>(live ? [] : ['devfest', 'career-fair']);
 
+/** RSVP / cancel RSVP. Instant on screen; saved in the background and rolled back if it fails. */
 export function toggleGoing(id: string) {
-  going.set((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
+  const was = going.get().includes(id);
+  const apply = (on: boolean) =>
+    going.set((p) => (on ? (p.includes(id) ? p : [...p, id]) : p.filter((x) => x !== id)));
+  apply(!was);
+  if (!live) return;
+  (async () => {
+    const event = events.get().find((e) => e.id === id);
+    if (!event?.dbId) return;
+    const userId = requireUserId();
+    const table = db().from('event_rsvps');
+    if (was) await ok(table.delete().eq('event_id', event.dbId).eq('user_id', userId));
+    else await ok(table.insert({ event_id: event.dbId, user_id: userId }));
+    await hydrateEvents(); // refresh the going counts
+  })().catch((e) => {
+    apply(was);
+    reportError(e);
+  });
 }
 
 export function eventDate(e: CampusEvent): Date {
@@ -284,12 +312,146 @@ export function eventDate(e: CampusEvent): Date {
   return d;
 }
 
-export function upsertEvent(e: CampusEvent) {
+const OPEN_TO_ALL: L = { en: 'Open to all students', ar: 'مفتوحة لجميع الطلاب' };
+
+type ClubRow = { id: string; slug: string | null; name_en: string; name_ar: string | null };
+
+type EventRow = {
+  id: string;
+  slug: string | null;
+  club_id: string | null;
+  title_en: string;
+  title_ar: string | null;
+  about_en: string | null;
+  about_ar: string | null;
+  venue_en: string | null;
+  venue_ar: string | null;
+  venue_detail_en: string | null;
+  venue_detail_ar: string | null;
+  host_en: string | null;
+  host_ar: string | null;
+  host_initial: string | null;
+  starts_at: string;
+  ends_at: string | null;
+  capacity: number | null;
+  registration_url: string | null;
+  is_draft: boolean;
+  date_set: boolean;
+  clubs: { slug: string | null; name_en: string; name_ar: string | null } | null;
+};
+
+const EVENT_SELECT = '*, clubs(slug, name_en, name_ar)';
+
+export function mapEvent(r: EventRow, goingCount = 0): CampusEvent {
+  const clubName = r.clubs ? bi(r.clubs.name_en, r.clubs.name_ar) : undefined;
+  const host = r.host_en ? bi(r.host_en, r.host_ar) : (clubName ?? bi('', ''));
+  const start = toHhmm(minutesOfDay(r.starts_at));
+  return {
+    id: r.slug ?? r.id,
+    dbId: r.id,
+    kind: r.club_id ? 'club' : 'university',
+    clubId: r.clubs ? (r.clubs.slug ?? r.club_id ?? undefined) : undefined,
+    title: bi(r.title_en, r.title_ar),
+    host,
+    hostInitial: r.host_initial ?? (host.en[0] ?? '?').toUpperCase(),
+    dayOffset: dayOffsetFromToday(r.starts_at),
+    start,
+    end: r.ends_at ? toHhmm(minutesOfDay(r.ends_at)) : start,
+    venue: bi(r.venue_en, r.venue_ar),
+    venueDetail: bi(r.venue_detail_en ?? r.venue_en, r.venue_detail_ar ?? r.venue_ar),
+    audience: r.capacity ? allStudents(r.capacity) : OPEN_TO_ALL,
+    about: bi(r.about_en, r.about_ar),
+    registrationUrl: r.registration_url ?? undefined,
+    draft: r.is_draft || undefined,
+    dateSet: r.date_set,
+    goingCount,
+  };
+}
+
+/** Loads clubs, events (drafts only for their organisers), going counts and the student's RSVPs. */
+export async function hydrateEvents() {
+  if (!live) return;
+  const client = db();
+  const userId = requireUserId();
+  const [clubRows, rows, counts, mine] = await Promise.all([
+    fetchAll<ClubRow>((a, b) =>
+      client.from('clubs').select('id, slug, name_en, name_ar').order('sort_order').range(a, b),
+    ),
+    fetchAll<EventRow>((a, b) =>
+      client.from('events').select(EVENT_SELECT).order('starts_at').range(a, b),
+    ),
+    fetchAll<{ event_id: string; rsvp_count: number }>((a, b) =>
+      client.from('event_rsvp_counts').select('event_id, rsvp_count').range(a, b),
+    ),
+    ok<{ event_id: string }[]>(client.from('event_rsvps').select('event_id').eq('user_id', userId)),
+  ]);
+  clubsStore.set(
+    clubRows.map((c) => ({ id: c.slug ?? c.id, dbId: c.id, name: bi(c.name_en, c.name_ar) })),
+  );
+  const list = rows.map((r) =>
+    mapEvent(r, counts.find((c) => c.event_id === r.id)?.rsvp_count ?? 0),
+  );
+  events.set(list);
+  going.set(list.filter((e) => mine.some((m) => m.event_id === e.dbId)).map((e) => e.id));
+}
+
+/** How many students joined a club (shown to its admin). */
+export async function clubMemberCount(clubDbId: string | undefined): Promise<number> {
+  if (!live) return 412;
+  if (!clubDbId) return 0;
+  const { count } = await db()
+    .from('club_members')
+    .select('club_id', { count: 'exact', head: true })
+    .eq('club_id', clubDbId);
+  return count ?? 0;
+}
+
+/** Creates or updates an event (club admins for their club; university admins for any). */
+export async function upsertEvent(e: CampusEvent) {
+  if (!live) {
+    events.set((prev) =>
+      prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [...prev, e],
+    );
+    return;
+  }
+  const club = e.clubId ? clubsStore.get().find((c) => c.id === e.clubId) : undefined;
+  const payload = {
+    club_id: e.kind === 'club' ? (club?.dbId ?? null) : null,
+    title_en: e.title.en,
+    title_ar: e.title.ar,
+    about_en: e.about.en,
+    about_ar: e.about.ar,
+    venue_en: e.venue.en,
+    venue_ar: e.venue.ar,
+    venue_detail_en: e.venueDetail.en,
+    venue_detail_ar: e.venueDetail.ar,
+    host_en: e.kind === 'university' ? e.host.en : null,
+    host_ar: e.kind === 'university' ? e.host.ar : null,
+    host_initial: e.hostInitial,
+    starts_at: riyadhIso(e.dayOffset, e.start),
+    ends_at: riyadhIso(e.dayOffset, e.end),
+    registration_url: e.registrationUrl ?? null,
+    is_draft: !!e.draft,
+    date_set: e.dateSet !== false,
+  };
+  const table = db().from('events');
+  const row = await ok<EventRow>(
+    (e.dbId ? table.update(payload).eq('id', e.dbId) : table.insert(payload))
+      .select(EVENT_SELECT)
+      .single(),
+  );
+  const saved = mapEvent(row, e.goingCount);
   events.set((prev) =>
-    prev.some((x) => x.id === e.id) ? prev.map((x) => (x.id === e.id ? e : x)) : [...prev, e],
+    prev.some((x) => x.id === e.id || x.dbId === row.id)
+      ? prev.map((x) => (x.id === e.id || x.dbId === row.id ? saved : x))
+      : [...prev, saved],
   );
 }
 
-export function deleteEvent(id: string) {
+export async function deleteEvent(id: string) {
+  if (live) {
+    const event = events.get().find((x) => x.id === id);
+    if (event?.dbId) await ok(db().from('events').delete().eq('id', event.dbId));
+  }
   events.set((prev) => prev.filter((x) => x.id !== id));
 }

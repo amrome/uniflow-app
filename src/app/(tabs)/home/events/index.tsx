@@ -7,10 +7,10 @@ import { AppText, IconBubble, Screen, TopBar } from '@/components/ui';
 import { AllClubsSheet, EventRow } from '@/features/events/components';
 import { fmt, useI18n } from '@/i18n';
 import {
-  clubs,
   events,
   going,
   publishedEvents,
+  useClubs,
   type CampusEvent,
   type EventKind,
 } from '@/services/events';
@@ -25,6 +25,7 @@ export default function Events() {
   const { colors } = useTheme();
   const router = useRouter();
   const all = publishedEvents(events.useValue());
+  const clubs = useClubs();
   const goingIds = going.useValue();
   const [filter, setFilter] = useState<Filter>(params.club ? 'club' : 'all');
   const [clubId, setClubId] = useState<string | undefined>(params.club);

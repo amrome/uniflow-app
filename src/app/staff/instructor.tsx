@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
@@ -16,28 +16,41 @@ import { useToast } from '@/components/ui/Toast';
 import { clock } from '@/features/schedules/components';
 import { StaffHeader, StaffRootBar } from '@/features/staff/components';
 import { fmt, useI18n } from '@/i18n';
+import { reportError } from '@/services/errors';
 import {
-  getInstructor,
+  instructorFollowerCount,
   majors,
   portal,
   portalFor,
+  savePortal,
+  useInstructor,
   weekDays,
+  type Instructor,
   type OfficeHour,
   type PortalStatus,
   type WeekDay,
 } from '@/services/schedules';
+import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
-
-const INSTRUCTOR_ID = 'sarah';
-const FOLLOWERS = 38;
+import { initials } from '@/utils/format';
 
 // Figma 13.1 · Instructor Portal
 export default function InstructorPortal() {
+  const { session } = useSession();
+  const instructor = useInstructor(session?.instructorId ?? 'sarah');
+  if (!instructor) return null;
+  return <PortalForm i={instructor} />;
+}
+
+function PortalForm({ i }: { i: Instructor }) {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
   const toast = useToast();
-  const i = getInstructor(INSTRUCTOR_ID)!;
+  const [followers, setFollowers] = useState(0);
+  useEffect(() => {
+    instructorFollowerCount(i.dbId).then(setFollowers, () => {});
+  }, [i.dbId]);
   const saved = portalFor(i, portal.useValue());
   const [status, setStatus] = useState<PortalStatus>(saved.status);
   const [note, setNote] = useState(saved.note);
@@ -50,12 +63,17 @@ export default function InstructorPortal() {
     ['notAvailable', t.staffPortal.notAvailable, colors.statusError],
   ];
 
-  const save = () => {
-    portal.set((p) => ({ ...p, [i.id]: { status, note: note.trim(), hours } }));
+  const save = async () => {
+    try {
+      await savePortal(i.id, { status, note: note.trim(), hours });
+    } catch (e) {
+      reportError(e);
+      return;
+    }
     toast.show({
       emoji: '🔔',
       title: t.staffPortal.savedTitle,
-      body: fmt(t.staffPortal.savedBody, { n: FOLLOWERS }),
+      body: fmt(t.staffPortal.savedBody, { n: followers }),
     });
   };
 
@@ -66,7 +84,7 @@ export default function InstructorPortal() {
       gap={12}
     >
       <StaffHeader
-        initials="SA"
+        initials={initials(i.name.en.replace(/^Dr\.?\s*/, ''))}
         name={i.name[language]}
         role={`${majors[i.major][language]} · ${i.office[language]}`}
       />
@@ -138,7 +156,7 @@ export default function InstructorPortal() {
       <View style={[styles.note, { backgroundColor: 'rgba(246,137,56,0.1)' }]}>
         <Icon name="bellPlus" size={16} color={colors.brandPrimary} />
         <AppText variant="captionStrong" style={styles.flex}>
-          {fmt(t.staffPortal.followers, { n: FOLLOWERS })}
+          {fmt(t.staffPortal.followers, { n: followers })}
         </AppText>
       </View>
 

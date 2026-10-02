@@ -1,3 +1,6 @@
+import { trimTime } from '@/lib/time';
+
+import { bi, db, fetchAll, live, ok, requireUserId } from './backend';
 import { createStore, createToggleSet } from './store';
 
 // Instructors from Figma 03 · Instructor Schedules (+ 03.2–03.8 per-major lists) and the
@@ -44,6 +47,8 @@ export type Slot = { start: string; end: string; type: SlotType; title: L; room:
 
 export type Instructor = {
   id: string;
+  /** Database uuid (backend only); `id` is the slug used in routes. */
+  dbId?: string;
   name: L;
   title: L;
   major: Major;
@@ -51,7 +56,7 @@ export type Instructor = {
   email: string;
   /** Weekly office hours window. */
   oh: { day: WeekDay; start: string; end: string };
-  courses: [L, L];
+  courses: L[];
 };
 
 const roomB: L = { en: 'Building B · Room 214', ar: 'المبنى B · غرفة ٢١٤' };
@@ -68,7 +73,7 @@ function inst(
   major: Major,
   title: L,
   oh: Instructor['oh'],
-  courses: [L, L],
+  courses: L[],
   room = 'Building B · Room 214',
   roomAr = 'المبنى B · غرفة ٢١٤',
 ): Instructor {
@@ -87,7 +92,7 @@ function inst(
 
 const c = (en: string, ar: string): L => ({ en, ar });
 
-export const instructors: Instructor[] = [
+const mockInstructors: Instructor[] = [
   inst(
     'sarah',
     'Sarah Al-Otaibi',
@@ -286,8 +291,17 @@ export const instructors: Instructor[] = [
   ),
 ];
 
+/** Instructors: the mock above, or what Supabase returned after sign-in. */
+export const instructorsStore = createStore<Instructor[]>(live ? [] : mockInstructors);
+export const useInstructors = instructorsStore.useValue;
+
 export function getInstructor(id: string | undefined) {
-  return instructors.find((i) => i.id === id);
+  return instructorsStore.get().find((i) => i.id === id);
+}
+
+/** Like getInstructor, but re-renders the screen when the list loads or changes. */
+export function useInstructor(id: string | undefined) {
+  return instructorsStore.useValue().find((i) => i.id === id);
 }
 
 export type PortalStatus = 'available' | 'away' | 'notAvailable';
@@ -295,17 +309,42 @@ export type OfficeHour = { day: WeekDay; start: string; end: string };
 export type PortalState = { status: PortalStatus; note: string; hours: OfficeHour[] };
 
 /** What instructors set in 13.1 · Instructor Portal (status, note, weekly office hours). */
-export const portal = createStore<Record<string, PortalState>>({
-  sarah: {
-    status: 'available',
-    note: '',
-    hours: [
-      { day: 0, start: '11:00', end: '12:30' },
-      { day: 2, start: '11:00', end: '12:30' },
-      { day: 4, start: '13:00', end: '14:00' },
-    ],
-  },
-});
+export const portal = createStore<Record<string, PortalState>>(
+  live
+    ? {}
+    : {
+        sarah: {
+          status: 'available',
+          note: '',
+          hours: [
+            { day: 0, start: '11:00', end: '12:30' },
+            { day: 2, start: '11:00', end: '12:30' },
+            { day: 4, start: '13:00', end: '14:00' },
+          ],
+        },
+      },
+);
+
+/** Saves the instructor's status, note and weekly office hours (13.1 · Instructor Portal). */
+export async function savePortal(id: string, state: PortalState) {
+  if (live) {
+    const instructor = getInstructor(id);
+    if (!instructor?.dbId) throw new Error('Unknown instructor');
+    await ok(
+      db().rpc('save_portal', {
+        p_instructor: instructor.dbId,
+        p_status: state.status === 'notAvailable' ? 'not_available' : state.status,
+        p_note: state.note,
+        p_hours: state.hours.map((h) => ({
+          day_of_week: h.day,
+          start_time: h.start,
+          end_time: h.end,
+        })),
+      }),
+    );
+  }
+  portal.set((p) => ({ ...p, [id]: state }));
+}
 
 export function portalFor(i: Instructor, all = portal.get()): PortalState {
   return all[i.id] ?? { status: 'available', note: '', hours: [i.oh] };
@@ -351,7 +390,7 @@ const classRooms: L[] = [
  * office hours on the instructor's OH day. Sarah's Sunday matches Figma 03.1 exactly.
  */
 function buildWeek(i: Instructor): Record<WeekDay, Slot[]> {
-  const seed = instructors.indexOf(i);
+  const seed = mockInstructors.indexOf(i);
   const week = {} as Record<WeekDay, Slot[]>;
   for (const d of weekDays) {
     const pattern: SlotType[] = ['CLS', 'CP', 'CLS', 'RS', 'DD', 'PM'];
@@ -393,12 +432,210 @@ function buildWeek(i: Instructor): Record<WeekDay, Slot[]> {
 
 /** Editable timetables (instructors can change theirs from 03.1a · Edit Schedule). */
 export const timetables = createStore<Record<string, Record<WeekDay, Slot[]>>>(
-  Object.fromEntries(instructors.map((i) => [i.id, buildWeek(i)])),
+  live ? {} : Object.fromEntries(mockInstructors.map((i) => [i.id, buildWeek(i)])),
 );
 
-export function saveWeek(id: string, week: Record<WeekDay, Slot[]>) {
+export const emptyWeek = (): Record<WeekDay, Slot[]> => ({ 0: [], 1: [], 2: [], 3: [], 4: [] });
+
+export async function saveWeek(id: string, week: Record<WeekDay, Slot[]>) {
+  if (live) {
+    const instructor = getInstructor(id);
+    if (!instructor?.dbId) throw new Error('Unknown instructor');
+    await ok(
+      db().rpc('save_week', {
+        p_instructor: instructor.dbId,
+        p_slots: weekDays.flatMap((d) =>
+          week[d].map((s) => ({
+            day_of_week: d,
+            start_time: s.start,
+            end_time: s.end,
+            slot_type: s.type,
+            title_en: s.title.en,
+            title_ar: s.title.ar,
+            room_en: s.room.en,
+            room_ar: s.room.ar,
+          })),
+        ),
+      }),
+    );
+  }
   timetables.set((prev) => ({ ...prev, [id]: week }));
 }
 
-export const favoriteInstructors = createToggleSet(['sarah', 'yousef']);
-export const notifyInstructors = createToggleSet([]);
+// Follow (⭐) and bell (🔔) are two flags on one row per student and instructor.
+async function savePref(slug: string, flags: { followed: boolean; notify: boolean }) {
+  const instructor = getInstructor(slug);
+  if (!instructor?.dbId) return;
+  await ok(
+    db()
+      .from('instructor_prefs')
+      .upsert(
+        { user_id: requireUserId(), instructor_id: instructor.dbId, ...flags },
+        { onConflict: 'user_id,instructor_id' },
+      ),
+  );
+}
+
+export const favoriteInstructors = createToggleSet(
+  live ? [] : ['sarah', 'yousef'],
+  live
+    ? (slug, on) => savePref(slug, { followed: on, notify: notifyInstructors.has(slug) })
+    : undefined,
+);
+export const notifyInstructors = createToggleSet(
+  [],
+  live
+    ? (slug, on) => savePref(slug, { followed: favoriteInstructors.has(slug), notify: on })
+    : undefined,
+);
+
+type InstructorRow = {
+  id: string;
+  slug: string | null;
+  name_en: string;
+  name_ar: string | null;
+  title_en: string | null;
+  title_ar: string | null;
+  major_key: string | null;
+  office_en: string | null;
+  office_ar: string | null;
+  email: string | null;
+  availability_status: 'available' | 'away' | 'not_available';
+  status_note: string;
+};
+type CourseRow = { instructor_id: string; code: string; name_en: string; name_ar: string | null };
+type HoursRow = {
+  instructor_id: string;
+  day_of_week: number;
+  start_time: string;
+  end_time: string;
+};
+type SlotRow = HoursRow & {
+  slot_type: SlotType;
+  title_en: string;
+  title_ar: string;
+  room_en: string | null;
+  room_ar: string | null;
+};
+type PrefRow = { instructor_id: string; followed: boolean; notify: boolean };
+
+/** How many students follow an instructor (shown on the Instructor Portal). */
+export async function instructorFollowerCount(dbId: string | undefined): Promise<number> {
+  if (!live) return 38;
+  if (!dbId) return 0;
+  const row = await ok<{ followers: number } | null>(
+    db()
+      .from('instructor_follow_counts')
+      .select('followers')
+      .eq('instructor_id', dbId)
+      .maybeSingle(),
+  );
+  return row?.followers ?? 0;
+}
+
+const asDay = (n: number): WeekDay | null =>
+  (weekDays as readonly number[]).includes(n) ? (n as WeekDay) : null;
+
+/** Loads instructors, their office hours, weekly timetables and the student's follows. */
+export async function hydrateSchedules() {
+  if (!live) return;
+  const client = db();
+  const [rows, courses, hours, slots, prefs] = await Promise.all([
+    fetchAll<InstructorRow>((a, b) =>
+      client.from('instructors').select('*').order('sort_order').order('name_en').range(a, b),
+    ),
+    fetchAll<CourseRow>((a, b) =>
+      client
+        .from('instructor_courses')
+        .select('instructor_id, code, name_en, name_ar')
+        .order('sort_order')
+        .range(a, b),
+    ),
+    fetchAll<HoursRow>((a, b) =>
+      client
+        .from('office_hours')
+        .select('instructor_id, day_of_week, start_time, end_time')
+        .order('day_of_week')
+        .order('start_time')
+        .range(a, b),
+    ),
+    fetchAll<SlotRow>((a, b) =>
+      client
+        .from('schedule_slots')
+        .select(
+          'instructor_id, day_of_week, start_time, end_time, slot_type, title_en, title_ar, room_en, room_ar',
+        )
+        .order('start_time')
+        .range(a, b),
+    ),
+    ok<PrefRow[]>(
+      client
+        .from('instructor_prefs')
+        .select('instructor_id, followed, notify')
+        .eq('user_id', requireUserId()),
+    ),
+  ]);
+
+  const hoursOf = (uuid: string): OfficeHour[] =>
+    hours.flatMap((h) => {
+      const day = asDay(h.day_of_week);
+      return h.instructor_id === uuid && day !== null
+        ? [{ day, start: trimTime(h.start_time), end: trimTime(h.end_time) }]
+        : [];
+    });
+
+  instructorsStore.set(
+    rows.map((r) => ({
+      id: r.slug ?? r.id,
+      dbId: r.id,
+      name: bi(r.name_en, r.name_ar),
+      title: bi(r.title_en, r.title_ar),
+      major: (r.major_key ?? 'software') as Major,
+      office: bi(r.office_en, r.office_ar),
+      email: r.email ?? '',
+      oh: hoursOf(r.id)[0] ?? { day: 0, start: '00:00', end: '00:00' },
+      courses: courses
+        .filter((c) => c.instructor_id === r.id)
+        .map((c) => bi(`${c.code} ${c.name_en}`, `${c.code} ${c.name_ar ?? c.name_en}`)),
+    })),
+  );
+
+  portal.set(
+    Object.fromEntries(
+      rows.map((r): [string, PortalState] => [
+        r.slug ?? r.id,
+        {
+          status:
+            r.availability_status === 'not_available' ? 'notAvailable' : r.availability_status,
+          note: r.status_note,
+          hours: hoursOf(r.id),
+        },
+      ]),
+    ),
+  );
+
+  const weeks: Record<string, Record<WeekDay, Slot[]>> = {};
+  for (const r of rows) weeks[r.slug ?? r.id] = emptyWeek();
+  for (const s of slots) {
+    const owner = rows.find((r) => r.id === s.instructor_id);
+    const day = asDay(s.day_of_week);
+    if (!owner || day === null) continue;
+    weeks[owner.slug ?? owner.id][day].push({
+      start: trimTime(s.start_time),
+      end: trimTime(s.end_time),
+      type: s.slot_type,
+      title: bi(s.title_en, s.title_ar),
+      room: bi(s.room_en, s.room_ar),
+    });
+  }
+  timetables.set(weeks);
+
+  const slugOf = (uuid: string) => {
+    const owner = rows.find((r) => r.id === uuid);
+    return owner ? [owner.slug ?? owner.id] : [];
+  };
+  favoriteInstructors.replace(
+    prefs.filter((p) => p.followed).flatMap((p) => slugOf(p.instructor_id)),
+  );
+  notifyInstructors.replace(prefs.filter((p) => p.notify).flatMap((p) => slugOf(p.instructor_id)));
+}

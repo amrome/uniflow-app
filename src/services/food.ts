@@ -1,9 +1,10 @@
 import type { ImageSourcePropType } from 'react-native';
 
-import type { CartLine } from './cart';
-import { createToggleSet } from './store';
+import { minutesOfDay, todayAtMinutes } from '@/lib/time';
 
-export const favoriteRestaurants = createToggleSet(['kafton', 'archi']);
+import { bi, db, fetchAll, live, ok, requireUserId } from './backend';
+import type { CartLine } from './cart';
+import { createStore, createToggleSet } from './store';
 
 // Restaurants + menus from Figma 04 · Food Menu and 04.1 · Kafton Menu. Archi and Tropika menus
 // aren't designed in Figma; they follow the same item pattern with plausible campus items.
@@ -14,6 +15,8 @@ export type MenuCategory =
 
 export type MenuItem = {
   id: string;
+  /** Database uuid (backend only); `id` is the slug used in routes and the cart. */
+  dbId?: string;
   name: L;
   desc: L;
   price: number;
@@ -25,6 +28,7 @@ export type MenuItem = {
 
 export type Restaurant = {
   id: string;
+  dbId?: string;
   name: L;
   cuisine: L;
   prepMin: number;
@@ -40,7 +44,7 @@ export type Restaurant = {
 
 const najd: L = { en: 'Najd Basement', ar: 'قبو نجد' };
 
-export const restaurants: Restaurant[] = [
+const mockRestaurants: Restaurant[] = [
   {
     id: 'kafton',
     name: { en: 'Kafton', ar: 'كفتون' },
@@ -207,8 +211,171 @@ export const restaurants: Restaurant[] = [
   },
 ];
 
+/** Restaurants + menus: the mock above, or what Supabase returned after sign-in. */
+export const restaurantsStore = createStore<Restaurant[]>(live ? [] : mockRestaurants);
+
+/** Subscribes the screen to the restaurant list. */
+export const useRestaurants = restaurantsStore.useValue;
+
 export function getRestaurant(id: string | undefined): Restaurant | undefined {
-  return restaurants.find((r) => r.id === id);
+  return restaurantsStore.get().find((r) => r.id === id);
+}
+
+/** Like getRestaurant, but re-renders the screen when the list loads or changes. */
+export function useRestaurant(id: string | undefined): Restaurant | undefined {
+  return restaurantsStore.useValue().find((r) => r.id === id);
+}
+
+export const favoriteRestaurants = createToggleSet(
+  live ? [] : ['kafton', 'archi'],
+  live
+    ? async (slug, on) => {
+        const restaurant = getRestaurant(slug);
+        if (!restaurant?.dbId) return;
+        const userId = requireUserId();
+        const table = db().from('favorite_restaurants');
+        if (on) {
+          await ok(
+            table.upsert(
+              { user_id: userId, restaurant_id: restaurant.dbId },
+              { onConflict: 'user_id,restaurant_id' },
+            ),
+          );
+        } else {
+          await ok(table.delete().eq('user_id', userId).eq('restaurant_id', restaurant.dbId));
+        }
+      }
+    : undefined,
+);
+
+/** "Past orders" counter on the profile. */
+export const pastOrders = createStore<number>(live ? 0 : 12);
+
+// ---- Supabase mapping -------------------------------------------------------------------
+
+type RestaurantRow = {
+  id: string;
+  slug: string | null;
+  name_en: string;
+  name_ar: string | null;
+  cuisine_en: string | null;
+  cuisine_ar: string | null;
+  location_en: string | null;
+  location_ar: string | null;
+  image_url: string | null;
+  prep_min: number;
+  rating: number | null;
+  rating_count: number;
+  coming_soon: boolean;
+};
+
+type MenuRow = {
+  id: string;
+  restaurant_id: string;
+  slug: string | null;
+  name_en: string;
+  name_ar: string | null;
+  description_en: string | null;
+  description_ar: string | null;
+  price: number;
+  category: string | null;
+  emoji: string | null;
+  bg: string | null;
+  popular: boolean;
+  is_available: boolean;
+};
+
+type FavoriteOrderRow = {
+  restaurant_id: string;
+  lines: { menu_item_id: string; qty: number }[];
+  times_ordered: number;
+};
+
+// Logos ship inside the app (a restaurant's image_url, when set, wins).
+const logos: Record<string, ImageSourcePropType> = {
+  kafton: require('../../assets/images/food/kafton.png'),
+  archi: require('../../assets/images/food/archi.png'),
+  tropika: require('../../assets/images/food/tropika.jpg'),
+};
+
+const compactCount = (n: number) =>
+  n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n);
+
+export function mapRestaurant(
+  r: RestaurantRow,
+  items: MenuRow[],
+  favorite?: FavoriteOrderRow,
+): Restaurant {
+  const menu: MenuItem[] = items
+    .filter((m) => m.is_available)
+    .map((m) => ({
+      id: m.slug ?? m.id,
+      dbId: m.id,
+      name: bi(m.name_en, m.name_ar),
+      desc: bi(m.description_en, m.description_ar),
+      price: Number(m.price),
+      emoji: m.emoji ?? '🍽️',
+      bg: m.bg ?? '#F2F2F2',
+      category: (m.category ?? 'wraps') as MenuCategory,
+      popular: m.popular || undefined,
+    }));
+  const lines: [string, number][] = (favorite?.lines ?? []).flatMap((l) => {
+    const item = menu.find((m) => m.dbId === l.menu_item_id);
+    return item ? [[item.id, l.qty] as [string, number]] : [];
+  });
+  return {
+    id: r.slug ?? r.id,
+    dbId: r.id,
+    name: bi(r.name_en, r.name_ar),
+    cuisine: bi(r.cuisine_en, r.cuisine_ar),
+    prepMin: r.prep_min,
+    location: bi(r.location_en, r.location_ar),
+    logo: r.image_url ? { uri: r.image_url } : logos[r.slug ?? ''],
+    rating: r.rating
+      ? `${Number(r.rating).toFixed(1)} (${compactCount(r.rating_count)})`
+      : undefined,
+    comingSoon: r.coming_soon || undefined,
+    categories: [...new Set(menu.map((m) => m.category))],
+    menu,
+    favoriteOrder: lines.length ? { lines, timesOrdered: favorite?.times_ordered ?? 1 } : undefined,
+  };
+}
+
+/** Loads restaurants, menus, favourites and the past-orders count for the signed-in user. */
+export async function hydrateFood() {
+  if (!live) return;
+  const client = db();
+  const userId = requireUserId();
+  const [rows, menus, favorites, favoriteOrders, past] = await Promise.all([
+    fetchAll<RestaurantRow>((a, b) =>
+      client.from('restaurants').select('*').order('sort_order').order('name_en').range(a, b),
+    ),
+    fetchAll<MenuRow>((a, b) =>
+      client.from('menu_items').select('*').order('sort_order').range(a, b),
+    ),
+    ok<{ restaurant_id: string }[]>(
+      client.from('favorite_restaurants').select('restaurant_id').eq('user_id', userId),
+    ),
+    ok<FavoriteOrderRow[]>(
+      client
+        .from('favorite_orders')
+        .select('restaurant_id, lines, times_ordered')
+        .eq('user_id', userId),
+    ),
+    client.from('orders').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+  ]);
+  const list = rows.map((r) =>
+    mapRestaurant(
+      r,
+      menus.filter((m) => m.restaurant_id === r.id),
+      favoriteOrders.find((f) => f.restaurant_id === r.id),
+    ),
+  );
+  restaurantsStore.set(list);
+  favoriteRestaurants.replace(
+    favorites.flatMap((f) => list.filter((r) => r.dbId === f.restaurant_id).map((r) => r.id)),
+  );
+  pastOrders.set(past.count ?? 0);
 }
 
 export function findItem(restaurant: Restaurant, id: string): MenuItem | undefined {
@@ -234,9 +401,51 @@ export type PlacedOrder = {
 let orderSeq = 10432;
 const orders: PlacedOrder[] = [];
 
-export async function placeOrder(input: Omit<PlacedOrder, 'id'>): Promise<PlacedOrder> {
-  const order = { ...input, id: `UF-${orderSeq++}` };
+export type PlaceOrderInput = Omit<PlacedOrder, 'id'> & {
+  /** Cart contents (needed to save the order in the backend). */
+  lines?: CartLine[];
+  payment?: 'mada' | 'cash';
+  /** Scheduled pickup, in minutes since midnight; omit for "as soon as possible". */
+  scheduledAt?: number;
+};
+
+export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
+  if (!live) {
+    const order: PlacedOrder = {
+      restaurantId: input.restaurantId,
+      items: input.items,
+      total: input.total,
+      readyAt: input.readyAt,
+      id: `UF-${orderSeq++}`,
+    };
+    orders.unshift(order);
+    return order;
+  }
+  // One call saves the order and its items; the database prices them from the menu.
+  const restaurant = getRestaurant(input.restaurantId);
+  if (!restaurant?.dbId) throw new Error('This restaurant is not available');
+  const items = (input.lines ?? []).map((l) => ({
+    menu_item_id: findItem(restaurant, l.id)?.dbId,
+    quantity: l.qty,
+  }));
+  const row = await ok<{ order_number: string; total: number; pickup_time: string }>(
+    db().rpc('place_order', {
+      p_restaurant: restaurant.dbId,
+      p_items: items,
+      p_pickup: input.scheduledAt === undefined ? null : todayAtMinutes(input.scheduledAt),
+      p_payment: input.payment ?? 'mada',
+      p_notes: null,
+    }),
+  );
+  const order: PlacedOrder = {
+    id: row.order_number,
+    restaurantId: input.restaurantId,
+    items: input.items,
+    total: Number(row.total),
+    readyAt: minutesOfDay(row.pickup_time),
+  };
   orders.unshift(order);
+  pastOrders.set((n) => n + 1);
   return order;
 }
 

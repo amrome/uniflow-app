@@ -16,7 +16,13 @@ import {
 import { useToast } from '@/components/ui/Toast';
 import { useI18n } from '@/i18n';
 import { formatTime, toMinutes } from '@/services/clock';
-import { shuttleTimetable, type Direction, type Timetable } from '@/services/transport';
+import { reportError } from '@/services/errors';
+import {
+  saveTimetable,
+  shuttleTimetable,
+  type Direction,
+  type Timetable,
+} from '@/services/transport';
 import { useTheme } from '@/theme';
 
 // Figma 13.5 · Schedule Editor (Edit Shuttle Schedule)
@@ -38,8 +44,13 @@ export default function ShuttleEditor() {
       footer={
         <Button
           label={t.staffPortal.saveSchedule}
-          onPress={() => {
-            shuttleTimetable.set(table);
+          onPress={async () => {
+            try {
+              await saveTimetable(table);
+            } catch (e) {
+              reportError(e);
+              return;
+            }
             if (notify) {
               toast.show({
                 emoji: '🚌',

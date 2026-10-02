@@ -1,10 +1,11 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { errorMessage } from '@/services/errors';
 import { useSession } from '@/services/session';
 import { typography, useTheme } from '@/theme';
 
@@ -19,6 +20,7 @@ export default function GuestRegistration() {
   const [mode, setMode] = useState<Mode>('phone');
   const [contact, setContact] = useState('');
   const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<'contact' | 'name' | null>('contact');
 
   const valid = name.trim().length > 1 && contact.trim().length > 3;
@@ -64,10 +66,20 @@ export default function GuestRegistration() {
           </View>
           <Button
             label={t.guestReg.continue}
-            disabled={!valid}
-            onPress={() => {
-              signInGuest(name.trim(), contact.trim());
-              router.replace('/guest');
+            disabled={!valid || busy}
+            onPress={async () => {
+              setBusy(true);
+              try {
+                await signInGuest(
+                  name.trim(),
+                  mode === 'phone' ? `+966${contact.trim()}` : contact.trim(),
+                );
+                router.replace('/guest');
+              } catch (e) {
+                Alert.alert(t.guestReg.title, errorMessage(e));
+              } finally {
+                setBusy(false);
+              }
             }}
           />
         </View>

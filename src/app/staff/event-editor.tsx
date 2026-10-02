@@ -18,15 +18,17 @@ import { useToast } from '@/components/ui/Toast';
 import { clock } from '@/features/schedules/components';
 import { useI18n } from '@/i18n';
 import { formatDate } from '@/services/clock';
+import { reportError } from '@/services/errors';
 import {
-  clubs,
   deleteEvent,
   eventDate,
   events,
   upsertEvent,
+  useClubs,
   type CampusEvent,
   type EventKind,
 } from '@/services/events';
+import { useSession } from '@/services/session';
 import { useTheme } from '@/theme';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -46,11 +48,16 @@ export default function EventEditor() {
   const { colors } = useTheme();
   const router = useRouter();
   const toast = useToast();
+  const { session } = useSession();
+  const clubs = useClubs();
   const existing = events.useValue().find((e) => e.id === params.id);
   const kind: EventKind = existing?.kind ?? params.kind ?? 'club';
+  const clubId = existing?.clubId ?? session?.clubId ?? 'gdg';
+  const myClub = clubs.find((c) => c.id === clubId);
+  const [saving, setSaving] = useState(false);
   const organizer =
     kind === 'club'
-      ? clubs.find((c) => c.id === (existing?.clubId ?? 'gdg'))!.name[language]
+      ? (myClub?.name[language] ?? '')
       : language === 'ar'
         ? 'جامعة اليمامة · شؤون الطلاب'
         : 'Al Yamamah University · Student Affairs';
@@ -77,12 +84,16 @@ export default function EventEditor() {
     return {
       id: existing?.id ?? `evt-${Date.now()}`,
       kind,
-      clubId: kind === 'club' ? (existing?.clubId ?? 'gdg') : undefined,
+      clubId: kind === 'club' ? clubId : undefined,
       title: loc(title.trim(), existing?.title),
       host:
         existing?.host ??
-        (kind === 'club' ? clubs[0].name : { en: 'Student Affairs', ar: 'شؤون الطلاب' }),
-      hostInitial: existing?.hostInitial ?? (kind === 'club' ? 'G' : 'Y'),
+        (kind === 'club'
+          ? (myClub?.name ?? { en: '', ar: '' })
+          : { en: 'Student Affairs', ar: 'شؤون الطلاب' }),
+      hostInitial:
+        existing?.hostInitial ??
+        (kind === 'club' ? (myClub?.name.en[0] ?? 'C').toUpperCase() : 'Y'),
       dayOffset: daysFromToday(date),
       dateSet,
       start,
@@ -97,8 +108,15 @@ export default function EventEditor() {
     };
   };
 
-  const save = (draft: boolean) => {
-    upsertEvent(build(draft));
+  const save = async (draft: boolean) => {
+    setSaving(true);
+    try {
+      await upsertEvent(build(draft));
+    } catch (e) {
+      reportError(e);
+      setSaving(false);
+      return;
+    }
     toast.show(
       draft
         ? { emoji: '📝', title: t.staffPortal.draftTitle, body: t.staffPortal.draftBody }
@@ -114,13 +132,13 @@ export default function EventEditor() {
         <View style={styles.footer}>
           <Button
             label={t.staffPortal.publish}
-            disabled={!title.trim() || !dateSet}
+            disabled={!title.trim() || !dateSet || saving}
             onPress={() => save(false)}
           />
           <Button
             label={t.staffPortal.saveDraft}
             variant="secondary"
-            disabled={!title.trim()}
+            disabled={!title.trim() || saving}
             onPress={() => save(true)}
           />
         </View>
@@ -233,8 +251,13 @@ export default function EventEditor() {
       {existing && (
         <Pressable
           accessibilityRole="button"
-          onPress={() => {
-            deleteEvent(existing.id);
+          onPress={async () => {
+            try {
+              await deleteEvent(existing.id);
+            } catch (e) {
+              reportError(e);
+              return;
+            }
             router.back();
           }}
           style={styles.delete}

@@ -5,6 +5,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Button, LangToggle, Screen, TextField, TopBar } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { useI18n } from '@/i18n';
+import { live } from '@/services/backend';
+import { reportError } from '@/services/errors';
 import { getProfile, updateProfile } from '@/services/profile';
 import { useTheme } from '@/theme';
 
@@ -20,16 +22,23 @@ export default function EditProfile() {
   const [studentId, setStudentId] = useState('');
 
   useEffect(() => {
-    getProfile().then((p) => {
-      setFullName(p.fullName);
-      setPhone(p.phone);
-      setEmail(p.email);
-      setStudentId(p.studentId);
-    });
+    getProfile()
+      .then((p) => {
+        setFullName(p.fullName);
+        setPhone(p.phone);
+        setEmail(p.email);
+        setStudentId(p.studentId);
+      })
+      .catch(reportError);
   }, []);
 
   const onSave = async () => {
-    await updateProfile({ fullName: fullName.trim(), phone: phone.trim(), email: email.trim() });
+    try {
+      await updateProfile({ fullName: fullName.trim(), phone: phone.trim(), email: email.trim() });
+    } catch (e) {
+      reportError(e);
+      return;
+    }
     toast.show({ emoji: '✅', title: t.profile.saved_toast, body: t.profile.saved_toast_body });
     router.back();
   };
@@ -83,6 +92,7 @@ export default function EditProfile() {
         onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
+        editable={!live} // with a backend the e-mail is the login, managed by the university
       />
       <View>
         <TextField label={t.profile.studentId} value={studentId} editable={false} />

@@ -9,13 +9,13 @@ import { DayTabs, SlotRow } from '@/features/schedules/Timetable';
 import { fmt, useI18n } from '@/i18n';
 import {
   TODAY,
-  getInstructor,
   majors,
   nextHours,
   portal,
   portalFor,
   timetables,
   todayHours,
+  useInstructor,
   type WeekDay,
 } from '@/services/schedules';
 import { useTheme } from '@/theme';
@@ -28,7 +28,7 @@ export default function InstructorProfile() {
   const tables = timetables.useValue();
   const portals = portal.useValue();
   const [day, setDay] = useState<WeekDay>(TODAY);
-  const i = getInstructor(id);
+  const i = useInstructor(id);
   if (!i) return null;
   const today = todayHours(i, portals);
   const next = nextHours(i, portals);
@@ -90,7 +90,7 @@ export default function InstructorProfile() {
       </AppText>
       <DayTabs value={day} onChange={setDay} />
       <View style={styles.slots}>
-        {tables[i.id][day].map((s) => (
+        {(tables[i.id]?.[day] ?? []).map((s) => (
           <SlotRow key={`${s.start}-${s.type}`} slot={s} />
         ))}
       </View>

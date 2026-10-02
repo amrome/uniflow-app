@@ -5,7 +5,7 @@ import { Icon } from '@/components/icons';
 import { AppText } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
 import { useCart } from '@/services/cart';
-import { getRestaurant } from '@/services/food';
+import { useRestaurant } from '@/services/food';
 import { typography, useTheme } from '@/theme';
 
 /** Figma Search field: surface fill, 12px radius, search glyph + 14px placeholder. */
@@ -76,7 +76,7 @@ export function CartBar() {
   const { colors } = useTheme();
   const router = useRouter();
   const { count, subtotal, vendorId } = useCart();
-  const restaurant = getRestaurant(vendorId ?? undefined);
+  const restaurant = useRestaurant(vendorId ?? undefined);
   if (!count || !restaurant) return null;
   return (
     <View

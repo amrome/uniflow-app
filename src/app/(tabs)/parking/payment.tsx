@@ -6,8 +6,10 @@ import { Icon } from '@/components/icons';
 import { AppText, Button, Card, Screen, TopBar } from '@/components/ui';
 import { Divider, SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
+import { live } from '@/services/backend';
 import { formatDate } from '@/services/clock';
-import { paidZone, reserveSlot, type PaymentMethod } from '@/services/parking';
+import { reportError } from '@/services/errors';
+import { reserveSlot, usePaidZone, type PaymentMethod } from '@/services/parking';
 import { useTheme } from '@/theme';
 
 // Figma 06.1 · Parking Payment
@@ -16,6 +18,8 @@ export default function ParkingPayment() {
   const { colors } = useTheme();
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod>('applePay');
+  const [paying, setPaying] = useState(false);
+  const paidZone = usePaidZone();
   const amount = fmt(t.food.price, { n: paidZone.price });
   const labels: Record<PaymentMethod, string> = {
     applePay: t.parking.applePay,
@@ -24,21 +28,28 @@ export default function ParkingPayment() {
   };
 
   const pay = async () => {
-    await reserveSlot(method);
-    router.replace('/parking/reserved');
+    setPaying(true);
+    try {
+      await reserveSlot(method);
+      router.replace('/parking/reserved');
+    } catch (e) {
+      reportError(e);
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
     <Screen
       header={<TopBar title={t.parking.checkout} />}
-      footer={<Button label={fmt(t.parking.pay, { amount })} onPress={pay} />}
+      footer={<Button label={fmt(t.parking.pay, { amount })} onPress={pay} disabled={paying} />}
     >
       <AppText variant="headingSmall">{t.parking.summary}</AppText>
       <Card style={styles.summary}>
         <SummaryRow label={t.parking.parking} value={t.parking.paidZone} muted={false} />
         <SummaryRow
           label={t.parking.slot}
-          value={fmt(t.parking.autoAssigned, { slot: 'P-17' })}
+          value={live ? t.parking.autoAssignedAtPay : fmt(t.parking.autoAssigned, { slot: 'P-17' })}
           muted={false}
         />
         <SummaryRow

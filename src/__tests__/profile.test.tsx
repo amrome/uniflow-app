@@ -12,7 +12,12 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 function Wrap({ children }: { children: ReactNode }) {
   return (
-    <SafeAreaProvider initialMetrics={{ frame: { x: 0, y: 0, width: 400, height: 900 }, insets: { top: 0, left: 0, right: 0, bottom: 0 } }}>
+    <SafeAreaProvider
+      initialMetrics={{
+        frame: { x: 0, y: 0, width: 400, height: 900 },
+        insets: { top: 0, left: 0, right: 0, bottom: 0 },
+      }}
+    >
       <ThemeProvider>
         <I18nProvider>
           <SessionProvider>
@@ -25,11 +30,23 @@ function Wrap({ children }: { children: ReactNode }) {
 }
 
 test('profile renders', async () => {
-  await renderRouter({ index: () => <Wrap><Profile /></Wrap> });
+  await renderRouter({
+    index: () => (
+      <Wrap>
+        <Profile />
+      </Wrap>
+    ),
+  });
   expect(await screen.findByText('Log out')).toBeTruthy();
 });
 
 test('edit profile renders', async () => {
-  await renderRouter({ index: () => <Wrap><EditProfile /></Wrap> });
+  await renderRouter({
+    index: () => (
+      <Wrap>
+        <EditProfile />
+      </Wrap>
+    ),
+  });
   expect(await screen.findByText('Edit Profile')).toBeTruthy();
 });

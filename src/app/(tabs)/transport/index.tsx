@@ -7,7 +7,7 @@ import { AppText, Screen, TopBar } from '@/components/ui';
 import { CampusMap } from '@/features/transport/CampusMap';
 import { fmt, useI18n } from '@/i18n';
 import { formatDuration, formatTime, nowMinutes } from '@/services/clock';
-import { golfCarts, shuttleTimetable, upcoming, type Direction } from '@/services/transport';
+import { shuttleTimetable, upcoming, useGolfCarts, type Direction } from '@/services/transport';
 import { useTheme } from '@/theme';
 
 type TrackState = 'idle' | 'tracking' | 'near' | 'arrived';
@@ -37,6 +37,7 @@ export default function Transportation() {
   };
 
   const table = shuttleTimetable.useValue();
+  const golfCarts = useGolfCarts();
   const [next, after] = upcoming(direction, table);
   const from = direction === 'fromCampus';
   const until = (m: number | undefined) =>

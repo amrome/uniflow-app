@@ -1,14 +1,77 @@
-import { mockProfile, type Profile } from '@/mocks/profile';
+import { mockProfile } from '@/mocks/profile';
 
-// Service boundary: swap the mock for a real API (Supabase/Firebase) in the backend phase
-// without touching any screen code.
-let current: Profile = { ...mockProfile };
+import { db, live, ok, requireUserId } from './backend';
+import { createStore } from './store';
+
+// Service boundary: screens only ever see this shape, whether it comes from the mock or Supabase.
+export type Profile = {
+  fullName: string;
+  phone: string;
+  email: string;
+  /** University ID, e.g. "2023-11430" (managed by the university, read-only). */
+  studentId: string;
+  majorKey: string | null;
+  level: number | null;
+};
+
+const blank: Profile = {
+  fullName: '',
+  phone: '',
+  email: '',
+  studentId: '',
+  majorKey: null,
+  level: null,
+};
+
+export const profileStore = createStore<Profile>(
+  live ? blank : { ...mockProfile, majorKey: 'software', level: 6 },
+);
+
+export const useProfile = profileStore.useValue;
+
+type Row = {
+  full_name: string | null;
+  phone: string | null;
+  email: string | null;
+  university_id: string | null;
+  major_key: string | null;
+  level: number | null;
+};
 
 export async function getProfile(): Promise<Profile> {
-  return current;
+  if (!live) return profileStore.get();
+  const row = await ok<Row>(
+    db()
+      .from('profiles')
+      .select('full_name, phone, email, university_id, major_key, level')
+      .eq('id', requireUserId())
+      .single(),
+  );
+  const profile: Profile = {
+    fullName: row.full_name ?? '',
+    phone: row.phone ?? '',
+    email: row.email ?? '',
+    studentId: row.university_id ?? '',
+    majorKey: row.major_key,
+    level: row.level,
+  };
+  profileStore.set(profile);
+  return profile;
 }
 
+/** Name and phone are editable; e-mail, university ID, major and level are managed by the university. */
 export async function updateProfile(patch: Partial<Pick<Profile, 'fullName' | 'phone' | 'email'>>) {
-  current = { ...current, ...patch };
-  return current;
+  if (live) {
+    const update: Record<string, string> = {};
+    if (patch.fullName !== undefined) update.full_name = patch.fullName;
+    if (patch.phone !== undefined) update.phone = patch.phone;
+    if (Object.keys(update).length) {
+      await ok(db().from('profiles').update(update).eq('id', requireUserId()));
+    }
+    const { email: _ignored, ...editable } = patch;
+    profileStore.set((p) => ({ ...p, ...editable }));
+  } else {
+    profileStore.set((p) => ({ ...p, ...patch }));
+  }
+  return profileStore.get();
 }

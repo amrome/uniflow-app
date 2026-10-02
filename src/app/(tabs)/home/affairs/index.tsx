@@ -5,7 +5,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icons';
 import { AppText, Button, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { affairsServices, book, estimate, laterSlots, ticket } from '@/services/affairs';
+import { book, estimate, laterSlots, ticket, useAffairsServices } from '@/services/affairs';
+import { reportError } from '@/services/errors';
 import { formatTime } from '@/services/clock';
 import { useTheme } from '@/theme';
 
@@ -15,9 +16,11 @@ export default function StudentAffairs() {
   const { colors } = useTheme();
   const router = useRouter();
   const current = ticket.useValue();
+  const affairsServices = useAffairsServices();
   const [serviceId, setServiceId] = useState('scholarships');
   const [slot, setSlot] = useState<number | 'next'>('next');
   const service = affairsServices.find((s) => s.id === serviceId) ?? affairsServices[0];
+  if (!service) return null;
   const e = estimate(service, slot);
 
   return (
@@ -33,7 +36,12 @@ export default function StudentAffairs() {
           <Button
             label={t.affairs.book}
             onPress={async () => {
-              await book(service, slot);
+              try {
+                await book(service, slot);
+              } catch (err) {
+                reportError(err);
+                return;
+              }
               router.push('/home/affairs/ticket');
             }}
           />
