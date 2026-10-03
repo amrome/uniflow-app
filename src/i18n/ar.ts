@@ -13,6 +13,8 @@ export const ar: Translations = {
     seeAll: 'عرض الكل',
     sar: 'ر.س',
     error: 'حدث خطأ ما',
+    showPassword: 'إظهار كلمة المرور',
+    hidePassword: 'إخفاء كلمة المرور',
   },
   tabs: {
     home: 'الرئيسية',
@@ -81,7 +83,7 @@ export const ar: Translations = {
     foodSub: 'اطلب مسبقًا من مطاعم الجامعة',
     transportSub: 'عربات الجولف والحافلة إلى محطة ساب',
     bannerTitle: 'هل أنت طالب في جامعة اليمامة؟',
-    bannerBody: 'سجّل دخولك للوصول إلى جداول الدكاترة وشؤون الطلاب والمواقف والفعاليات.',
+    bannerBody: 'سجّل دخولك للوصول إلى جداول الدكاترة والمواقف والفعاليات.',
     bannerCta: 'الدخول كطالب',
   },
   home: {
@@ -435,6 +437,7 @@ export const ar: Translations = {
     draft: 'مسودة',
     goingCount: '{n} سيحضرون',
     dateNotSet: 'لم يُحدد التاريخ',
+    datePast: 'لا يمكن أن يكون التاريخ قبل اليوم. اختر اليوم أو يومًا لاحقًا.',
     edit: 'تعديل',
     uniTitle: 'مشرف الجامعة',
     uniName: 'شؤون الطلاب',

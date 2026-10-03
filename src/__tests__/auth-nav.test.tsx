@@ -27,9 +27,26 @@ test('a guest going back from Food lands on the guest home, never the student ap
   await user.type(screen.getByPlaceholderText('Full name'), 'Sara Guest');
   await user.press(screen.getAllByRole('button', { name: 'Continue as Guest' }).slice(-1)[0]);
   await user.press(await screen.findByText('Food Pre-Order', {}, WAIT));
+  // the tab bar offers guests their home and the two services, nothing student-only
+  expect((await screen.findAllByRole('tab')).map((t) => t.props.accessibilityLabel)).toEqual([
+    'Home',
+    'Transport',
+    'Food',
+  ]);
   await user.press(await screen.findByRole('button', { name: 'Back' }));
   expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy();
   expect(screen.queryByText(/Hi, /)).toBeNull();
+
+  // Student Affairs is open to guests too, and Back returns to the guest home
+  await user.press(await screen.findByText('Student Affairs', {}, WAIT));
+  expect(await screen.findByText('Book appointment', {}, WAIT)).toBeTruthy();
+  await user.press(await screen.findByRole('button', { name: 'Back' }));
+  expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy();
+
+  // the Home tab brings a guest back from a service too
+  await user.press(await screen.findByText('Food Pre-Order', {}, WAIT));
+  await user.press(await screen.findByRole('tab', { name: 'Home' }));
+  expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy();
 });
 
 test('a student who just signed in cannot go back, and logging out returns to login', async () => {
@@ -53,4 +70,15 @@ test('a staff member who just signed in cannot go back to the staff login', asyn
   expect(await screen.findByText('Instructor Portal', {}, WAIT)).toBeTruthy();
   expect(testRouter.canGoBack()).toBe(false);
   await act(async () => {});
+});
+
+test('the eye button shows and hides the password', async () => {
+  await renderRouter('./src/app', { initialUrl: '/login' });
+  const user = userEvent.setup();
+  const field = await screen.findByPlaceholderText('••••••••••');
+  expect(field.props.secureTextEntry).toBe(true);
+  await user.press(screen.getByRole('button', { name: 'Show password' }));
+  expect(screen.getByPlaceholderText('••••••••••').props.secureTextEntry).toBe(false);
+  await user.press(screen.getByRole('button', { name: 'Hide password' }));
+  expect(screen.getByPlaceholderText('••••••••••').props.secureTextEntry).toBe(true);
 });

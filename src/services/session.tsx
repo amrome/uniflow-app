@@ -69,6 +69,18 @@ export const staffDemoEmails = {
 
 const STAFF_MODE_KEY = 'uniflow.staffMode';
 
+// Demo switch (see "Demo mode" in CLAUDE.md): EXPO_PUBLIC_SKIP_AUTH=1 opens the app straight on the
+// student Home. With a backend it signs in the demo account EXPO_PUBLIC_DEMO_EMAIL / _PASSWORD so
+// writes (orders, reservations) still belong to a real user.
+const SKIP_AUTH = process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
+const DEMO_EMAIL = process.env.EXPO_PUBLIC_DEMO_EMAIL ?? '';
+const DEMO_PASSWORD = process.env.EXPO_PUBLIC_DEMO_PASSWORD ?? '';
+const mockStudent = (): Session => ({
+  role: 'student',
+  name: mockProfile.fullName,
+  email: mockProfile.email,
+});
+
 type ProfileRow = {
   role: string;
   full_name: string | null;
@@ -108,7 +120,9 @@ async function loadSession(user: User, asStaff: boolean): Promise<Session> {
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<Session | null>(null);
+  const [session, setSessionState] = useState<Session | null>(() =>
+    SKIP_AUTH && !live ? mockStudent() : null,
+  );
   const [ready, setReady] = useState(!live);
 
   // The user id is stored *before* React re-renders, so effects further down the tree (the data
@@ -126,16 +140,24 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const { data } = await client.auth.getSession();
+        let restored: Session | null = null;
         if (data.session) {
           const asStaff = (await AsyncStorage.getItem(STAFF_MODE_KEY)) === '1';
-          const restored = await loadSession(data.session.user, asStaff);
+          restored = await loadSession(data.session.user, asStaff);
           if (restored.role === 'guest') {
             // A guest visit is temporary: the next launch starts at Login, not in the old guest session.
+            restored = null;
             await client.auth.signOut().catch(() => {});
-          } else if (active) {
-            setSession(restored);
           }
         }
+        if (!restored && SKIP_AUTH && DEMO_EMAIL) {
+          const { data: signedIn, error } = await client.auth.signInWithPassword({
+            email: DEMO_EMAIL,
+            password: DEMO_PASSWORD,
+          });
+          if (!error && signedIn.user) restored = await loadSession(signedIn.user, false);
+        }
+        if (restored && active) setSession(restored);
       } catch {
         // offline or revoked: fall through to the login screen
       } finally {

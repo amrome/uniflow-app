@@ -252,11 +252,6 @@ ok(
   JSON.stringify(t3),
 );
 await fails(
-  'guest cannot book',
-  as(db, gst, `select book_queue_ticket('${reg}')`),
-  'students and staff',
-);
-await fails(
   'direct ticket insert rejected',
   as(db, adm, `insert into queue_tickets (service_id, seq) values ('${tr}', 99)`),
   'permission denied',
@@ -289,6 +284,9 @@ const st = (
   )
 ).rows[0];
 ok('service board: next number R-104', st.next_number === 'R-104', JSON.stringify(st));
+await as(db, gst, `select book_queue_ticket('${reg}')`);
+const tg = (await as(db, gst, 'select * from my_active_ticket()')).rows[0];
+ok('guest can book a Student Affairs ticket', tg && /^R-\d+$/.test(tg.number), JSON.stringify(tg));
 await as(db, other, `update queue_tickets set status='cancelled' where user_id='${other}'`);
 ok(
   'owner can cancel own waiting ticket',

@@ -56,6 +56,16 @@ export default function GuestHome() {
           onPress={() => router.push('/transport')}
         />
       </View>
+      <View style={styles.row}>
+        <ServiceTile
+          icon="briefcase"
+          tone="brand"
+          title={t.home.affairs}
+          subtitle={t.home.affairsSub}
+          onPress={() => router.push('/home/affairs')}
+        />
+        <View style={styles.flex} />
+      </View>
       <View style={[styles.banner, { backgroundColor: colors.brandPrimary }]}>
         <AppText variant="title" tone="onBrand">
           {t.guestHome.bannerTitle}

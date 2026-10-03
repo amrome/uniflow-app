@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`. Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`. Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -57,11 +57,23 @@ The README says services are mocked; check `src/services` to see what is already
 - Required inputs get a red `*` (`statusError` colour): pass `required` to `TextField` / `PickerField`. For section headings that act as labels (guest registration), add the red `*` span by hand.
 - Phone numbers are entered without the prefix: 9 digits starting with 5, placeholder `5xxxxxxxx`. Use `sanitizePhone`, `PHONE_MAX_LENGTH` and `PHONE_PLACEHOLDER` from `src/lib/phone.ts`. Stored as `+966` + the 9 digits.
 
+- Any `TextField` with `secureTextEntry` automatically gets a show/hide eye button (icons `eye` / `eyeOff`, strings `common.showPassword` / `hidePassword`). Don't build a separate one.
+- Event dates can't be before today: the event editor passes `minimumDate` to `PickerField` and disables Publish / Save draft with an error line when the date is past (also for old events opened for editing).
+
 ## Navigation rules
 
-- Guests only get Food + Transport. The student-only tabs are hidden with `href: null`, but they still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
+- Guests get Food, Transport and Student Affairs (the guest home has a tile for each; the Affairs screens live under `/home/affairs`; `book_queue_ticket` allows guests since patch 05). Parking, schedules, events and profile stay student-only. Guests only have tabs for Food + Transport. The student-only tabs are hidden with `href: null`, but they still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
 - Launch: students and staff stay signed in (saved Supabase session is restored in `services/session.tsx`). A guest session is never restored: guests are signed out on relaunch, so the app starts at Login.
+- "Go left" transitions: logging out (every portal) and the student Home tab slide the next screen in from the left. It is done by hand in `Screen` (`components/ui/slideFromLeft.ts`): call `requestSlideFromLeft()` right before navigating and the next focused `Screen` animates. Native `animation` options were unreliable, so don't use them for this. The guest Home button uses `router.dismissTo('/guest')` (native back transition).
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
+
+## Demo mode (skip login for judges)
+
+- Set `EXPO_PUBLIC_SKIP_AUTH=1` in `.env` and restart with `npx expo start --clear`. The app opens straight on the student Home, no login.
+- Without Supabase keys that is the mock student. With Supabase keys also set `EXPO_PUBLIC_DEMO_EMAIL` / `EXPO_PUBLIC_DEMO_PASSWORD` to a real demo student account, so orders and reservations belong to a real user. Without them the login screen shows as usual.
+- Remove the line (or set it to anything else) to bring authentication back. Logic is in `services/session.tsx` (`SKIP_AUTH`). The login screens and guest flow still exist, nothing was deleted.
+- The `.env` values are baked into the bundle, so use a throwaway demo account, never a real one.
+- The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport and Food, spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs hidden with `href: null` (expo-router turns that into `tabBarItemStyle: { display: 'none' }`, which is what the custom bar checks).
 
 ## Sharing the app for the demo
 

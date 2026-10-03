@@ -11,6 +11,8 @@ export const en = {
     seeAll: 'See all',
     sar: 'SAR',
     error: 'Something went wrong',
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
   },
   tabs: {
     home: 'Home',
@@ -79,7 +81,7 @@ export const en = {
     foodSub: 'Order ahead from campus restaurants',
     transportSub: 'Golf carts & shuttle to SAB Station',
     bannerTitle: 'Are you a YU student?',
-    bannerBody: 'Log in to unlock instructor schedules, student affairs, parking and events.',
+    bannerBody: 'Log in to unlock instructor schedules, parking and events.',
     bannerCta: 'Log in as student',
   },
   home: {
@@ -434,6 +436,7 @@ export const en = {
     draft: 'DRAFT',
     goingCount: '{n} going',
     dateNotSet: 'Date not set',
+    datePast: 'The date cannot be before today. Pick today or a later day.',
     edit: 'Edit',
     uniTitle: 'University Admin',
     uniName: 'Student Affairs',

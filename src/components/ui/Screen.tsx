@@ -1,9 +1,19 @@
-import type { ReactNode } from 'react';
-import { ScrollView, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState, type ReactNode } from 'react';
+import {
+  Animated,
+  ScrollView,
+  StyleSheet,
+  View,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { layout, useTheme } from '@/theme';
 
+import { consumeSlideFromLeft } from './slideFromLeft';
 import { useInTabs } from './TabStack';
 
 type Props = {
@@ -32,14 +42,28 @@ export function Screen({
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const inTabs = useInTabs();
+  const { width } = useWindowDimensions();
+  const [slideX] = useState(() => new Animated.Value(0));
+  // When a navigation asked for it (logout, student Home button), slide in from the left.
+  useFocusEffect(
+    useCallback(() => {
+      if (!consumeSlideFromLeft()) return;
+      slideX.setValue(-width);
+      Animated.timing(slideX, { toValue: 0, duration: 280, useNativeDriver: true }).start();
+    }, [slideX, width]),
+  );
   const bottom = inTabs || footer ? 24 : insets.bottom + 24;
   const content = [
     { paddingHorizontal: gutter, paddingBottom: bottom, paddingTop: header ? 8 : 6, gap },
     contentStyle,
   ];
   return (
-    <View
-      style={[styles.root, { backgroundColor: colors.backgroundPrimary, paddingTop: insets.top }]}
+    <Animated.View
+      style={[
+        styles.root,
+        { backgroundColor: colors.backgroundPrimary, paddingTop: insets.top },
+        { transform: [{ translateX: slideX }] },
+      ]}
     >
       {header}
       {scroll ? (
@@ -65,7 +89,7 @@ export function Screen({
           {footer}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }
 
