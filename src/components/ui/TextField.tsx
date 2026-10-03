@@ -5,10 +5,10 @@ import { layout, radius, spacing, typography, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
 
-type Props = TextInputProps & { label?: string; editable?: boolean };
+type Props = TextInputProps & { label?: string; editable?: boolean; required?: boolean };
 
 /** Figma Input/Field: 12px medium label, 48px field, 12px radius, 1px border. */
-export function TextField({ label, editable = true, style, ...rest }: Props) {
+export function TextField({ label, editable = true, required, style, ...rest }: Props) {
   const { colors } = useTheme();
   const { isRTL } = useI18n();
   return (
@@ -16,6 +16,7 @@ export function TextField({ label, editable = true, style, ...rest }: Props) {
       {label && (
         <AppText variant="captionStrong" tone="secondary">
           {label}
+          {required && <AppText style={{ color: colors.statusError }}> *</AppText>}
         </AppText>
       )}
       <TextInput

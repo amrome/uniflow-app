@@ -12,11 +12,24 @@ test('a guest who just signed in cannot go back to the login screen', async () =
   await renderRouter('./src/app', { initialUrl: '/login' });
   const user = userEvent.setup();
   await user.press(await screen.findByText('Continue as Guest'));
-  await user.type(await screen.findByPlaceholderText('XXX XXX XXXX'), '555123456');
+  await user.type(await screen.findByPlaceholderText('5xxxxxxxx'), '555123456');
   await user.type(screen.getByPlaceholderText('Full name'), 'Sara Guest');
   await user.press(screen.getAllByRole('button', { name: 'Continue as Guest' }).slice(-1)[0]);
   expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy(); // the guest's name
   expect(testRouter.canGoBack()).toBe(false);
+});
+
+test('a guest going back from Food lands on the guest home, never the student app', async () => {
+  await renderRouter('./src/app', { initialUrl: '/login' });
+  const user = userEvent.setup();
+  await user.press(await screen.findByText('Continue as Guest'));
+  await user.type(await screen.findByPlaceholderText('5xxxxxxxx'), '555123456');
+  await user.type(screen.getByPlaceholderText('Full name'), 'Sara Guest');
+  await user.press(screen.getAllByRole('button', { name: 'Continue as Guest' }).slice(-1)[0]);
+  await user.press(await screen.findByText('Food Pre-Order', {}, WAIT));
+  await user.press(await screen.findByRole('button', { name: 'Back' }));
+  expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy();
+  expect(screen.queryByText(/Hi, /)).toBeNull();
 });
 
 test('a student who just signed in cannot go back, and logging out returns to login', async () => {

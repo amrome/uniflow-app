@@ -18,10 +18,11 @@ type Props = {
   mode: 'date' | 'time';
   onChange: (d: Date) => void;
   compact?: boolean;
+  required?: boolean;
 };
 
 /** Field styled like Input/Field that opens the native date or time picker. */
-export function PickerField({ label, display, value, mode, onChange, compact }: Props) {
+export function PickerField({ label, display, value, mode, onChange, compact, required }: Props) {
   const { colors, isDark } = useTheme();
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -48,6 +49,7 @@ export function PickerField({ label, display, value, mode, onChange, compact }: 
       {label && (
         <AppText variant="captionStrong" tone="secondary">
           {label}
+          {required && <AppText style={{ color: colors.statusError }}> *</AppText>}
         </AppText>
       )}
       <Pressable

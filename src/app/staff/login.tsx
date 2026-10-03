@@ -79,6 +79,7 @@ export default function StaffLogin() {
       </View>
       <TextField
         label={t.staff.email}
+        required
         value={email}
         onChangeText={setEmail}
         keyboardType="email-address"
@@ -86,6 +87,7 @@ export default function StaffLogin() {
       />
       <TextField
         label={t.auth.password}
+        required
         value={password}
         onChangeText={setPassword}
         secureTextEntry

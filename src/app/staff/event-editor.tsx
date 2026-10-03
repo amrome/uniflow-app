@@ -170,10 +170,11 @@ export default function EventEditor() {
         </AppText>
       </View>
 
-      <TextField label={t.staffPortal.eventTitle} value={title} onChangeText={setTitle} />
+      <TextField label={t.staffPortal.eventTitle} required value={title} onChangeText={setTitle} />
       <View style={styles.row}>
         <PickerField
           label={t.staffPortal.date}
+          required
           mode="date"
           value={date}
           display={dateSet ? formatDate(date, language) : t.staffPortal.dateNotSet}
@@ -186,6 +187,7 @@ export default function EventEditor() {
           <View style={styles.row}>
             <PickerField
               label={t.staffPortal.time}
+              required
               mode="time"
               value={hhmmToDate(start)}
               display={clock(start, language)}
@@ -201,7 +203,7 @@ export default function EventEditor() {
           </View>
         </View>
       </View>
-      <TextField label={t.staffPortal.venue} value={venue} onChangeText={setVenue} />
+      <TextField label={t.staffPortal.venue} required value={venue} onChangeText={setVenue} />
       <TextField
         label={t.staffPortal.description}
         value={about}

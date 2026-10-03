@@ -49,7 +49,7 @@ export const en = {
     contactHint: "We'll use this to identify your orders and send updates.",
     phoneTab: '📱 Phone Number',
     emailTab: '✉️ Email Address',
-    phonePlaceholder: 'XXX XXX XXXX',
+    phonePlaceholder: '5xxxxxxxx',
     emailPlaceholder: 'name@example.com',
     nameTitle: 'Full Name',
     nameHint: 'Enter your full three-part name as it appears on your ID.',

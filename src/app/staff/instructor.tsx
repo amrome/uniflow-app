@@ -235,6 +235,7 @@ function HourEditor(props: {
         <View style={styles.times}>
           <PickerField
             label={t.staffPortal.from}
+            required
             mode="time"
             value={hhmmToDate(draft.start)}
             display={clock(draft.start, language, true)}
@@ -242,6 +243,7 @@ function HourEditor(props: {
           />
           <PickerField
             label={t.staffPortal.to}
+            required
             mode="time"
             value={hhmmToDate(draft.end)}
             display={clock(draft.end, language, true)}

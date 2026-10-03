@@ -10,7 +10,13 @@ export default function TabsLayout() {
   // Guests only get food + transport; hide the student-only tabs.
   const guest = session?.role === 'guest';
   return (
-    <Tabs tabBar={(props) => <TabBar {...props} />} screenOptions={{ headerShown: false }}>
+    // Default back behaviour jumps to the first tab (the student Home). A guest must never land
+    // there, so for guests back just pops to the guest home.
+    <Tabs
+      tabBar={(props) => <TabBar {...props} />}
+      screenOptions={{ headerShown: false }}
+      backBehavior={guest ? 'none' : 'firstRoute'}
+    >
       <Tabs.Screen name="home" options={{ title: t.tabs.home, href: guest ? null : undefined }} />
       <Tabs.Screen name="transport" options={{ title: t.tabs.transport }} />
       <Tabs.Screen name="food" options={{ title: t.tabs.food }} />

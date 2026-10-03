@@ -51,7 +51,7 @@ export const ar: Translations = {
     contactHint: 'سنستخدمها للتعرّف على طلباتك وإرسال التحديثات.',
     phoneTab: '📱 رقم الجوال',
     emailTab: '✉️ البريد الإلكتروني',
-    phonePlaceholder: 'XXX XXX XXXX',
+    phonePlaceholder: '5xxxxxxxx',
     emailPlaceholder: 'name@example.com',
     nameTitle: 'الاسم الثلاثي',
     nameHint: 'أدخل اسمك الثلاثي كما هو في الهوية.',
