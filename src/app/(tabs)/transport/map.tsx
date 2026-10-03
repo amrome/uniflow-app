@@ -22,7 +22,7 @@ import { useToast } from '@/components/ui/Toast';
 import {
   CAMPUS_BEARING,
   CAMPUS_BUILDINGS,
-  CAMPUS_CENTER,
+  CAMPUS_VIEW_CENTER,
   CAMPUS_PITCH,
   CAMPUS_ZOOM,
   PLACES,
@@ -126,7 +126,7 @@ export default function CampusMap3D() {
         <Camera
           ref={cameraRef}
           initialViewState={{
-            center: CAMPUS_CENTER,
+            center: CAMPUS_VIEW_CENTER,
             zoom: CAMPUS_ZOOM,
             pitch: CAMPUS_PITCH,
             bearing: CAMPUS_BEARING,
@@ -171,7 +171,11 @@ export default function CampusMap3D() {
       <View style={[styles.controls, { top: insets.top + 74 }]}>
         <MapButton label="＋" a11y={t.transport.mapZoomIn} onPress={() => zoomBy(1)} />
         <MapButton label="－" a11y={t.transport.mapZoomOut} onPress={() => zoomBy(-1)} />
-        <MapButton label="📍" a11y={t.transport.mapCampus} onPress={() => flyTo(CAMPUS_CENTER)} />
+        <MapButton
+          label="📍"
+          a11y={t.transport.mapCampus}
+          onPress={() => flyTo(CAMPUS_VIEW_CENTER)}
+        />
         <MapButton label="🚇" a11y={t.transport.mapSabStation} onPress={() => flyTo(SAB_STATION)} />
       </View>
 

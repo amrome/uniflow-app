@@ -41,13 +41,19 @@ describe('campus map data', () => {
     }
   });
 
+  it('has the 13 traced campus buildings', () => {
+    expect(CAMPUS_BUILDINGS.features).toHaveLength(13);
+  });
+
   it('only contains valid, closed building polygons near the campus', () => {
     for (const f of CAMPUS_BUILDINGS.features) {
       const ring = f.geometry.coordinates[0];
       expect(ring.length).toBeGreaterThanOrEqual(4);
       expect(ring[0]).toEqual(ring[ring.length - 1]);
       for (const [lng, lat] of ring) expect(km([lng, lat], CAMPUS_CENTER)).toBeLessThan(1.5);
-      expect(Number(f.properties?.height ?? 12)).toBeGreaterThan(0);
+      expect(f.properties?.name).toBeTruthy();
+      expect(f.properties?.name_ar).toBeTruthy();
+      expect(Number(f.properties?.height)).toBeGreaterThan(0);
     }
   });
 

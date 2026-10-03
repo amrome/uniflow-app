@@ -1,7 +1,13 @@
 import { Camera, Map } from '@maplibre/maplibre-react-native';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
-import { CAMPUS_BEARING, CAMPUS_CENTER, CAMPUS_PITCH, CAMPUS_ZOOM, PLACES } from './campusMapData';
+import {
+  CAMPUS_BEARING,
+  CAMPUS_PITCH,
+  CAMPUS_VIEW_CENTER,
+  CAMPUS_ZOOM,
+  PLACES,
+} from './campusMapData';
 import { BuildingLayers, PlaceMarkers, useMapStyle } from './mapShared';
 
 // Small, non-interactive 3D preview of the campus. It sits on the Transportation
@@ -31,7 +37,7 @@ export function CampusMap({ style }: { style?: ViewStyle }) {
         >
           <Camera
             initialViewState={{
-              center: CAMPUS_CENTER,
+              center: CAMPUS_VIEW_CENTER,
               zoom: CAMPUS_ZOOM - 0.4,
               pitch: CAMPUS_PITCH,
               bearing: CAMPUS_BEARING,

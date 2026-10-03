@@ -2,6 +2,8 @@
 // the reverse of what Google Maps shows).
 import type { LngLat } from '@maplibre/maplibre-react-native';
 
+import { campusBuildingFeatures, type CampusBuildingProps } from './campusBuildings';
+
 // Al-Yamamah University pin, from Google Maps.
 export const CAMPUS_CENTER: LngLat = [46.5937941, 24.863473];
 
@@ -25,13 +27,14 @@ export const CAMPUS_ZOOM = 16.2;
 export const CAMPUS_PITCH = 55;
 export const CAMPUS_BEARING = 20;
 
-// Campus buildings drawn by hand, shown in brand orange on top of the OpenStreetMap buildings.
-// To add one: draw it at https://geojson.io (satellite view), give the polygon `name` (and
-// optionally `name_ar`) and `height` (metres) properties, then paste the polygon's feature into
-// `features` below. `height` may be a number or a string; both work.
-export type CampusBuildingProps = { name?: string; name_ar?: string; height?: number | string };
+// The campus buildings spread over about 500 m x 270 m; the camera centres on their middle rather
+// than on the university's Google Maps pin, which sits at the east end.
+export const CAMPUS_VIEW_CENTER: LngLat = [46.592045, 24.862944];
+
+// Hand-drawn buildings live in campusBuildings.ts (orange on the map, searchable by name).
+export type { CampusBuildingProps } from './campusBuildings';
 
 export const CAMPUS_BUILDINGS: GeoJSON.FeatureCollection<GeoJSON.Polygon, CampusBuildingProps> = {
   type: 'FeatureCollection',
-  features: [],
+  features: campusBuildingFeatures,
 };
