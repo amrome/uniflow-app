@@ -64,7 +64,6 @@ export default function GuestHome() {
           subtitle={t.home.affairsSub}
           onPress={() => router.push('/home/affairs')}
         />
-        <View style={styles.flex} />
       </View>
       <View style={[styles.banner, { backgroundColor: colors.brandPrimary }]}>
         <AppText variant="title" tone="onBrand">

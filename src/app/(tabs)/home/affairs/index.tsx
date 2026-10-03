@@ -5,7 +5,14 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Icon } from '@/components/icons';
 import { AppText, Button, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { book, estimate, laterSlots, ticket, useAffairsServices } from '@/services/affairs';
+import {
+  MAX_TICKETS,
+  book,
+  estimate,
+  laterSlots,
+  tickets,
+  useAffairsServices,
+} from '@/services/affairs';
 import { reportError } from '@/services/errors';
 import { formatTime } from '@/services/clock';
 import { useTheme } from '@/theme';
@@ -15,13 +22,15 @@ export default function StudentAffairs() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const current = ticket.useValue();
+  const myTickets = tickets.useValue();
   const affairsServices = useAffairsServices();
   const [serviceId, setServiceId] = useState('scholarships');
   const [slot, setSlot] = useState<number | 'next'>('next');
   const service = affairsServices.find((s) => s.id === serviceId) ?? affairsServices[0];
   if (!service) return null;
   const e = estimate(service, slot);
+  const current = myTickets.find((tk) => tk.serviceId === service.id);
+  const full = myTickets.length >= MAX_TICKETS;
 
   return (
     <Screen
@@ -30,25 +39,59 @@ export default function StudentAffairs() {
         current ? (
           <Button
             label={fmt(t.affairs.viewTicket, { number: current.number })}
-            onPress={() => router.push('/home/affairs/ticket')}
+            onPress={() =>
+              router.push({ pathname: '/home/affairs/ticket', params: { id: current.id } })
+            }
           />
         ) : (
           <Button
-            label={t.affairs.book}
+            label={full ? fmt(t.affairs.maxTickets, { n: MAX_TICKETS }) : t.affairs.book}
+            disabled={full}
             onPress={async () => {
+              let booked;
               try {
-                await book(service, slot);
+                booked = await book(service, slot);
               } catch (err) {
                 reportError(err);
                 return;
               }
-              router.push('/home/affairs/ticket');
+              router.push({ pathname: '/home/affairs/ticket', params: { id: booked.id } });
             }}
           />
         )
       }
       gap={12}
     >
+      {myTickets.length > 0 && (
+        <>
+          <AppText variant="bodyStrong">
+            {fmt(t.affairs.yourTickets, { n: myTickets.length, max: MAX_TICKETS })}
+          </AppText>
+          <View style={styles.services}>
+            {myTickets.map((tk) => (
+              <Pressable
+                key={tk.id}
+                accessibilityRole="button"
+                onPress={() =>
+                  router.push({ pathname: '/home/affairs/ticket', params: { id: tk.id } })
+                }
+                style={[styles.service, { backgroundColor: colors.brandPrimarySoft }]}
+              >
+                <View style={styles.flex}>
+                  <AppText variant="bodySmall" weight="semibold">
+                    {tk.number} ·{' '}
+                    {affairsServices.find((s) => s.id === tk.serviceId)?.name[language]}
+                  </AppText>
+                  <AppText variant="caption" tone="secondary">
+                    {fmt(t.affairs.ahead2, { n: tk.ahead })}
+                  </AppText>
+                </View>
+                <Icon name="chevronRight" size={18} color={colors.textSecondary} flipRTL />
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
       <AppText variant="bodyStrong">{t.affairs.service}</AppText>
       <View style={styles.services}>
         {affairsServices.map((s) => {
@@ -74,6 +117,16 @@ export default function StudentAffairs() {
                     },
               ]}
             >
+              <View
+                style={[
+                  styles.letter,
+                  { backgroundColor: on ? colors.brandPrimary : colors.backgroundPrimary },
+                ]}
+              >
+                <AppText variant="title" tone={on ? 'onBrand' : 'brand'}>
+                  {s.letter}
+                </AppText>
+              </View>
               <View style={styles.flex}>
                 <AppText variant="bodySmall" weight="semibold">
                   {s.name[language]}
@@ -193,6 +246,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 14,
+  },
+  letter: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5 },

@@ -88,8 +88,15 @@ type ProfileRow = {
   phone: string | null;
 };
 
-/** Builds the app session for a signed-in user from the database. */
-async function loadSession(user: User, asStaff: boolean): Promise<Session> {
+const STAFF_ROLES: StaffRole[] = ['instructor', 'clubAdmin', 'uniAdmin'];
+
+/**
+ * Builds the app session for a signed-in user from the database.
+ * One account can hold several roles (university admin, instructor, club admin). The login screen
+ * decides which portal opens: the normal Login is always the student portal; the Staff login opens
+ * `wantRole` when the account has it, otherwise the account's first staff role.
+ */
+async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): Promise<Session> {
   const client = db();
   const [profile, clubs, instructor] = await Promise.all([
     ok<ProfileRow>(
@@ -103,11 +110,14 @@ async function loadSession(user: User, asStaff: boolean): Promise<Session> {
     ),
   ]);
   const clubId = clubs[0]?.clubs?.slug ?? undefined;
+  const can: StaffRole[] = [];
+  if (profile.role === 'admin' || profile.role === 'affairs') can.push('uniAdmin');
+  if (profile.role === 'instructor' || instructor) can.push('instructor');
+  if (clubId) can.push('clubAdmin');
   let role: Role;
-  if (profile.role === 'admin' || profile.role === 'affairs') role = 'uniAdmin';
-  else if (profile.role === 'instructor') role = 'instructor';
-  else if (profile.role === 'guest') role = 'guest';
-  else role = asStaff && clubId ? 'clubAdmin' : 'student';
+  if (profile.role === 'guest') role = 'guest';
+  else if (!asStaff) role = 'student';
+  else role = wantRole && can.includes(wantRole) ? wantRole : (can[0] ?? 'student');
   return {
     role,
     name: profile.full_name || profile.email?.split('@')[0] || 'Guest',
@@ -142,8 +152,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const { data } = await client.auth.getSession();
         let restored: Session | null = null;
         if (data.session) {
-          const asStaff = (await AsyncStorage.getItem(STAFF_MODE_KEY)) === '1';
-          restored = await loadSession(data.session.user, asStaff);
+          // STAFF_MODE_KEY holds the staff role chosen at Staff login ('1' from older versions).
+          const saved = await AsyncStorage.getItem(STAFF_MODE_KEY);
+          const savedRole = STAFF_ROLES.find((r) => r === saved);
+          restored = await loadSession(data.session.user, !!saved, savedRole);
           if (restored.role === 'guest') {
             // A guest visit is temporary: the next launch starts at Login, not in the old guest session.
             restored = null;
@@ -258,12 +270,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         password,
       });
       if (error) throw error;
-      const s = await loadSession(data.user, true);
+      const s = await loadSession(data.user, true, role);
       if (s.role === 'student' || s.role === 'guest') {
         await client.auth.signOut();
         throw new Error('This account does not have staff access');
       }
-      await AsyncStorage.setItem(STAFF_MODE_KEY, '1').catch(() => {});
+      await AsyncStorage.setItem(STAFF_MODE_KEY, s.role).catch(() => {});
       setSession(s);
       return s;
     },

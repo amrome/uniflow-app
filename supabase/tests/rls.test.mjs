@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { boot, as } from './lib.mjs';
 const db = await boot();
 let pass = 0,
@@ -232,10 +233,31 @@ ok(
   JSON.stringify(t1),
 );
 await fails(
-  'one active ticket per student',
-  as(db, stu, `select book_queue_ticket('${tr}')`),
+  'no second live ticket for the same service',
+  as(db, stu, `select book_queue_ticket('${reg}')`),
   'already have',
 );
+await as(db, stu, `select book_queue_ticket('${tr}')`);
+ok(
+  'a student can hold a ticket for each service (2 live)',
+  (await as(db, stu, 'select * from my_active_tickets()')).rows.length === 2,
+);
+await as(db, stu, `select book_queue_ticket('${await sid('scholarships')}')`);
+await as(db, stu, `select book_queue_ticket('${await sid('idcard')}')`);
+const mine = (await as(db, stu, 'select number from my_active_tickets()')).rows.map(
+  (r) => r.number[0],
+);
+ok('four live tickets, one letter per service (R,T,S,I)', mine.join('') === 'RTSI', mine.join(','));
+await db.query(`update public.affairs_services set is_active = true`);
+await db.query(
+  `insert into public.affairs_services (slug, name_en, name_ar, ticket_prefix, minutes_per_ticket, sort_order) values ('extra','Extra','إضافي','X',5,9)`,
+);
+await fails(
+  'a fifth live ticket is refused',
+  as(db, stu, `select book_queue_ticket('${await sid('extra')}')`),
+  'up to 4',
+);
+await db.query(`delete from public.affairs_services where slug = 'extra'`);
 await as(db, stu2, `select book_queue_ticket('${reg}')`);
 let t2 = (await as(db, stu2, 'select * from my_active_ticket()')).rows[0];
 ok(
@@ -466,6 +488,26 @@ ok(
   'student follows an instructor',
   (await as(db, stu, 'select * from instructor_prefs')).rows.length === 1,
 );
+
+console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
+const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
+const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');
+await db.exec(helper);
+const allRole = (await db.query(`select role from profiles where id = '${all}'`)).rows[0].role;
+const allSarah = (await db.query(`select profile_id from instructors where slug = 'sarah'`))
+  .rows[0];
+const allClub = (
+  await db.query(
+    `select cm.role from club_members cm join clubs c on c.id = cm.club_id where c.slug = 'gdg' and cm.user_id = '${all}'`,
+  )
+).rows[0];
+ok(
+  'one account is university admin + Sarah + GDG admin',
+  allRole === 'admin' && allSarah.profile_id === all && allClub?.role === 'admin',
+  JSON.stringify({ allRole, allSarah, allClub }),
+);
+await db.exec(helper);
+ok('the helper can run twice', true);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -16,19 +16,16 @@ export default function StaffLogin() {
   const { colors } = useTheme();
   const router = useRouter();
   const { signInStaff } = useSession();
-  const [email, setEmail] = useState<string>(staffDemoEmails.clubAdmin);
+  const [email, setEmail] = useState<string>(live ? '' : staffDemoEmails.clubAdmin);
   const [password, setPassword] = useState(live ? '' : 'password');
   const [busy, setBusy] = useState(false);
 
   const logIn = async (role?: StaffRole) => {
-    // With a real backend the demo chips only fill in the email: you still need the password.
-    if (live && role) {
-      setEmail(staffDemoEmails[role]);
-      return;
-    }
     setBusy(true);
     try {
-      await signInStaff(role ? staffDemoEmails[role] : email.trim(), password, role);
+      // With a backend the chips choose which portal to open with the account typed above (one
+      // account can hold several staff roles); without one they sign in the matching demo user.
+      await signInStaff(role && !live ? staffDemoEmails[role] : email.trim(), password, role);
       router.replace('/'); // the entry screen sends each staff role to its own portal
     } catch (e) {
       Alert.alert(t.staff.loginTitle, errorMessage(e));
@@ -49,7 +46,7 @@ export default function StaffLogin() {
       footer={
         <View style={styles.demo}>
           <AppText variant="tiny" tone="secondary">
-            {t.staff.demoLabel}
+            {live ? t.staff.pickPortal : t.staff.demoLabel}
           </AppText>
           <View style={styles.demoRow}>
             {demos.map(([role, label]) => (

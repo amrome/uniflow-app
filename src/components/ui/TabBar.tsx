@@ -9,7 +9,6 @@ import { useSession } from '@/services/session';
 import { shadows, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
-import { requestSlideFromLeft } from './slideFromLeft';
 
 const icons: Record<string, IconName> = {
   home: 'home',
@@ -28,6 +27,8 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { session } = useSession();
   const guest = session?.role === 'guest';
   const tabStyle = [styles.tab, guest && styles.guestTab];
+  // Student Affairs lives under the (hidden) student Home tab, so for a guest it is "on" when that tab is.
+  const onAffairs = guest && state.routes[state.index]?.name === 'home';
   return (
     <View
       style={[
@@ -47,7 +48,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           accessibilityState={{ selected: false }}
           accessibilityLabel={t.tabs.home}
           style={tabStyle}
-          onPress={() => router.dismissTo('/guest')} // pops (slides back), never pushes a copy
+          onPress={() => router.dismissTo('/guest')} // pops back to the guest home, never pushes a copy
         >
           <Icon name="home" color={colors.textSecondary} />
           <AppText variant="tiny" style={{ color: colors.textSecondary }} numberOfLines={1}>
@@ -77,7 +78,6 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
                 canPreventDefault: true,
               });
               if (!focused && !event.defaultPrevented) {
-                if (route.name === 'home') requestSlideFromLeft(); // Home slides in from the left
                 navigation.navigate(route.name);
               }
             }}
@@ -89,6 +89,25 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           </Pressable>
         );
       })}
+      {guest && (
+        // Student Affairs is open to guests; it sits with the other services in their bar.
+        <Pressable
+          accessibilityRole="tab"
+          accessibilityState={{ selected: onAffairs }}
+          accessibilityLabel={t.tabs.affairs}
+          style={tabStyle}
+          onPress={() => !onAffairs && router.navigate('/home/affairs')}
+        >
+          <Icon name="briefcase" color={onAffairs ? colors.brandPrimary : colors.textSecondary} />
+          <AppText
+            variant="tiny"
+            style={{ color: onAffairs ? colors.brandPrimary : colors.textSecondary }}
+            numberOfLines={1}
+          >
+            {t.tabs.affairs}
+          </AppText>
+        </Pressable>
+      )}
     </View>
   );
 }

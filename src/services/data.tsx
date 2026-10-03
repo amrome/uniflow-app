@@ -2,7 +2,7 @@ import { useEffect, type ReactNode } from 'react';
 
 import { ErrorToaster } from '@/components/ui/ErrorToaster';
 
-import { hydrateAffairs, refreshTicket, affairsServicesStore, ticket } from './affairs';
+import { hydrateAffairs, refreshTickets, affairsServicesStore, tickets } from './affairs';
 import { db, live } from './backend';
 import { reportError } from './errors';
 import { clubsStore, events, going, hydrateEvents } from './events';
@@ -52,7 +52,7 @@ export function resetData() {
     portal,
     timetables,
     affairsServicesStore,
-    ticket,
+    tickets,
     profileStore,
   ].forEach((store) => store.reset());
   [favoriteRestaurants, spotAlerts, favoriteInstructors, notifyInstructors].forEach((set) =>
@@ -81,7 +81,7 @@ function subscribeLive(): () => void {
     .subscribe();
   // Other people being served doesn't change *your* row, so also re-check your place regularly.
   const poll = setInterval(() => {
-    if (ticket.get()) refreshTicket().catch(() => {});
+    if (tickets.get().length) refreshTickets().catch(() => {});
   }, 15_000);
   return () => {
     clearInterval(poll);

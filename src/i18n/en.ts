@@ -20,6 +20,7 @@ export const en = {
     food: 'Food',
     parking: 'Parking',
     profile: 'Profile',
+    affairs: 'Affairs',
   },
   auth: {
     welcome: 'Welcome to Uniflow',
@@ -69,6 +70,7 @@ export const en = {
       'Your role is detected automatically from your YU account — instructor, club president or university staff.',
     ssoNote: 'Staff accounts are created by YU IT · uses university single sign-on',
     demoLabel: 'Prototype only · try other accounts:',
+    pickPortal: 'Open as (uses the account above):',
     demoInstructor: 'Instructor',
     demoClub: 'Club president',
     demoUni: 'University staff',
@@ -337,6 +339,9 @@ export const en = {
     book: 'Book appointment',
     bookHint: "We'll notify you when your turn is near and when it's time.",
     viewTicket: 'View your ticket · {number}',
+    yourTickets: 'Your tickets ({n} of {max})',
+    maxTickets: 'Maximum of {n} tickets reached',
+    ahead2: '{n} ahead of you',
     ticketTitle: 'Your Ticket',
     yourNumberCaps: 'YOUR NUMBER',
     nowServing: 'Now serving {number} · Counter 3',
@@ -481,7 +486,7 @@ export const en = {
     items: {
       queue: {
         title: "You're next!",
-        body: 'A-108 · 2 people ahead at Student Affairs, Counter 3',
+        body: 'R-108 · 2 people ahead at Student Affairs, Counter 3',
         time: 'Just now',
       },
       instructor: {

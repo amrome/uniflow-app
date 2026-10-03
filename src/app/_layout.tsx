@@ -58,12 +58,9 @@ function ThemedStack() {
           <Stack.Screen name="signup" />
         </Stack.Protected>
         <Stack.Protected guard={signedIn}>
-          {/* Entering the tabs slides in from the right; leaving them (a guest's Home button) is the
-              reverse, so the guest home slides in from the left. */}
-          <Stack.Screen
-            name="(tabs)"
-            options={{ gestureEnabled: false, animation: 'slide_from_right' }}
-          />
+          {/* No transition into or out of the tabs: getting back to a home page (the guest Home button,
+              Back from a guest service) appears directly, without sliding. */}
+          <Stack.Screen name="(tabs)" options={{ gestureEnabled: false, animation: 'none' }} />
           <Stack.Screen name="guest" options={{ gestureEnabled: false }} />
         </Stack.Protected>
       </Stack>

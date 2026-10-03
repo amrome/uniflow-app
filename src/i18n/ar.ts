@@ -22,6 +22,7 @@ export const ar: Translations = {
     food: 'الطعام',
     parking: 'المواقف',
     profile: 'حسابي',
+    affairs: 'شؤون الطلاب',
   },
   auth: {
     welcome: 'مرحبًا بك في Uniflow',
@@ -71,6 +72,7 @@ export const ar: Translations = {
       'يتم التعرف على صلاحيتك تلقائيًا من حسابك الجامعي — دكتور أو رئيس نادي أو موظف جامعة.',
     ssoNote: 'حسابات الموظفين تنشئها تقنية المعلومات · دخول موحد',
     demoLabel: 'نموذج أولي فقط · جرّب حسابات أخرى:',
+    pickPortal: 'ادخل كـ (بالحساب أعلاه):',
     demoInstructor: 'دكتور',
     demoClub: 'رئيس نادي',
     demoUni: 'موظف جامعة',
@@ -338,6 +340,9 @@ export const ar: Translations = {
     book: 'احجز موعدًا',
     bookHint: 'سننبهك عندما يقترب دورك وعندما يحين.',
     viewTicket: 'اعرض تذكرتك · {number}',
+    yourTickets: 'تذاكرك ({n} من {max})',
+    maxTickets: 'وصلت إلى الحد الأقصى ({n} تذاكر)',
+    ahead2: 'أمامك {n}',
     ticketTitle: 'تذكرتك',
     yourNumberCaps: 'رقمك',
     nowServing: 'يُخدم الآن {number} · الشباك 3',
@@ -482,7 +487,7 @@ export const ar: Translations = {
     items: {
       queue: {
         title: 'دورك التالي!',
-        body: 'A-108 · أمامك شخصان في شؤون الطلاب، الشباك 3',
+        body: 'R-108 · أمامك شخصان في شؤون الطلاب، الشباك 3',
         time: 'الآن',
       },
       instructor: {

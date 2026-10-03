@@ -5,7 +5,7 @@ import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { Icon, type IconName } from '@/components/icons';
 import { AppText, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { ticket } from '@/services/affairs';
+import { tickets } from '@/services/affairs';
 import { reportError } from '@/services/errors';
 import { favoriteRestaurants, pastOrders, useRestaurants } from '@/services/food';
 import { going } from '@/services/events';
@@ -23,7 +23,7 @@ export default function Profile() {
   const { colors, isDark, setPreference } = useTheme();
   const router = useRouter();
   const { session, signOut } = useSession();
-  const tk = ticket.useValue();
+  const myTickets = tickets.useValue();
   const pass = reservation.useValue();
   const goingCount = going.useValue().length;
   const favRestaurants = favoriteRestaurants.useValue();
@@ -88,9 +88,21 @@ export default function Profile() {
       <View style={styles.activity}>
         <Activity
           icon="ticket"
-          value={tk?.number ?? '—'}
+          value={
+            myTickets.length === 0
+              ? '—'
+              : myTickets.length === 1
+                ? myTickets[0].number
+                : `${myTickets[0].number} +${myTickets.length - 1}`
+          }
           label={t.profile.queueTicket}
-          onPress={() => router.navigate(tk ? '/home/affairs/ticket' : '/home/affairs')}
+          onPress={() =>
+            router.navigate(
+              myTickets.length === 1
+                ? { pathname: '/home/affairs/ticket', params: { id: myTickets[0].id } }
+                : '/home/affairs',
+            )
+          }
         />
         <Activity
           icon="parking"

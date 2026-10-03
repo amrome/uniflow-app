@@ -99,14 +99,38 @@ test('a student account stays a student (no staff screens)', async () => {
   expect(role).toBe('student');
 });
 
-test('profile role admin becomes the university admin', async () => {
+test('profile role admin becomes the university admin through staff login only', async () => {
   mockRows.profiles = { role: 'admin', full_name: 'Affairs', email: 'x@yu.edu.sa', phone: null };
   await mount();
-  let role = '';
+  let viaStudent = '';
+  let viaStaff = '';
   await act(async () => {
-    role = (await api().signInStudent('x@yu.edu.sa', 'pw')).role;
+    viaStudent = (await api().signInStudent('x@yu.edu.sa', 'pw')).role;
   });
-  expect(role).toBe('uniAdmin');
+  await act(async () => {
+    viaStaff = (await api().signInStaff('x@yu.edu.sa', 'pw')).role;
+  });
+  expect([viaStudent, viaStaff]).toEqual(['student', 'uniAdmin']);
+});
+
+test('one account with every role opens the portal you ask for', async () => {
+  mockRows.profiles = { role: 'admin', full_name: 'Demo', email: 'demo@yu.edu.sa', phone: null };
+  mockRows.instructors = { slug: 'sarah' };
+  mockRows.club_members = [{ clubs: { slug: 'gdg' } }];
+  await mount();
+  const roles: Record<string, string> = {};
+  await act(async () => {
+    roles.student = (await api().signInStudent('demo@yu.edu.sa', 'pw')).role;
+    roles.instructor = (await api().signInStaff('demo@yu.edu.sa', 'pw', 'instructor')).role;
+    roles.club = (await api().signInStaff('demo@yu.edu.sa', 'pw', 'clubAdmin')).role;
+    roles.uni = (await api().signInStaff('demo@yu.edu.sa', 'pw', 'uniAdmin')).role;
+  });
+  expect(roles).toEqual({
+    student: 'student',
+    instructor: 'instructor',
+    club: 'clubAdmin',
+    uni: 'uniAdmin',
+  });
 });
 
 test('staff login rejects a plain student and signs them out', async () => {

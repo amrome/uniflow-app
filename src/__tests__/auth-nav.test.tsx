@@ -32,6 +32,7 @@ test('a guest going back from Food lands on the guest home, never the student ap
     'Home',
     'Transport',
     'Food',
+    'Affairs',
   ]);
   await user.press(await screen.findByRole('button', { name: 'Back' }));
   expect(await screen.findByText(/Welcome, Sara/, {}, WAIT)).toBeTruthy();

@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`. Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -52,6 +52,11 @@ The README says services are mocked; check `src/services` to see what is already
 - Before saying a task is done, run `npm run typecheck`, `npm run lint` and `npm test`.
 - Prefer targeted searches and line ranges over reading whole large files.
 
+## Student Affairs tickets
+
+- Each service has its own ticket letter: Registration `R`, Transcripts & Letters `T`, Scholarships `S`, ID Card `I` (R-101, S-102…). Live: the database owns it (`affairs_services.ticket_prefix`). Mock: `letter` in `src/services/affairs.ts`. The service list shows the letter as a badge. To add a service, give it a new unique letter in both places.
+- A student (or guest) can hold up to 4 live tickets at once, at most one per service (`MAX_TICKETS`; DB patch `06_multiple_tickets.sql`, RPC `my_active_tickets()`). The app keeps them in `tickets` (an array); the ticket screen takes `?id=`.
+
 ## Form conventions
 
 - Required inputs get a red `*` (`statusError` colour): pass `required` to `TextField` / `PickerField`. For section headings that act as labels (guest registration), add the red `*` span by hand.
@@ -64,7 +69,7 @@ The README says services are mocked; check `src/services` to see what is already
 
 - Guests get Food, Transport and Student Affairs (the guest home has a tile for each; the Affairs screens live under `/home/affairs`; `book_queue_ticket` allows guests since patch 05). Parking, schedules, events and profile stay student-only. Guests only have tabs for Food + Transport. The student-only tabs are hidden with `href: null`, but they still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
 - Launch: students and staff stay signed in (saved Supabase session is restored in `services/session.tsx`). A guest session is never restored: guests are signed out on relaunch, so the app starts at Login.
-- "Go left" transitions: logging out (every portal) and the student Home tab slide the next screen in from the left. It is done by hand in `Screen` (`components/ui/slideFromLeft.ts`): call `requestSlideFromLeft()` right before navigating and the next focused `Screen` animates. Native `animation` options were unreliable, so don't use them for this. The guest Home button uses `router.dismissTo('/guest')` (native back transition).
+- Transitions: only logging out animates (Login slides in from the left, done by hand in `Screen` via `components/ui/slideFromLeft.ts`: call `requestSlideFromLeft()` right before navigating). Getting back to a home page has no animation: the student Home tab does not slide, and `(tabs)` has `animation: 'none'` so the guest Home button and Back from a guest service appear directly. Native `animation` options were unreliable for the slide, so don't use them for it.
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
 
 ## Demo mode (skip login for judges)
@@ -73,13 +78,20 @@ The README says services are mocked; check `src/services` to see what is already
 - Without Supabase keys that is the mock student. With Supabase keys also set `EXPO_PUBLIC_DEMO_EMAIL` / `EXPO_PUBLIC_DEMO_PASSWORD` to a real demo student account, so orders and reservations belong to a real user. Without them the login screen shows as usual.
 - Remove the line (or set it to anything else) to bring authentication back. Logic is in `services/session.tsx` (`SKIP_AUTH`). The login screens and guest flow still exist, nothing was deleted.
 - The `.env` values are baked into the bundle, so use a throwaway demo account, never a real one.
-- The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport and Food, spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs hidden with `href: null` (expo-router turns that into `tabBarItemStyle: { display: 'none' }`, which is what the custom bar checks).
+- The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport, Food and Affairs (a button to `/home/affairs`, highlighted while the hidden Home tab is focused), spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs hidden with `href: null` (expo-router turns that into `tabBarItemStyle: { display: 'none' }`, which is what the custom bar checks).
 
 ## Sharing the app for the demo
 
 - `npm start` only works for phones on the same Wi-Fi as the dev PC (LAN address). For people on other networks use `npm run start:tunnel` (PC must stay on).
 - Better for judges: EAS Update (`eas update`, runs in Expo Go with the PC off) or an Android APK (`eas build -p android --profile preview`). Neither is set up yet: no `eas.json`, needs an Expo account.
 - The `.env` Supabase keys are baked in when the bundle is built or published, so publish from a machine that has `.env`.
+
+## One account for all portals (demo)
+
+- An account can hold several roles. The login door chooses the portal: normal Login is always the student portal; Staff login opens the chip you tap (Instructor, Club admin, University admin) if the account has that role, otherwise its first staff role. Guest is separate (anonymous account).
+- In live mode the Staff login chips use the email and password typed above them; they don't fill in demo emails any more.
+- Set it up with `supabase/07_demo_all_portals.sql`: create the user in Supabase (`@yu.edu.sa`, Auto Confirm), put the email at the top of the file, run it. It makes the account university admin + Sarah (instructor) + GDG club admin. To switch portal: Profile > Log out, then use the other door.
+- Capabilities come from the database: `profiles.role` admin/affairs = university admin, `instructors.profile_id` = instructor, a `club_members` admin row = club admin (`loadSession` in `services/session.tsx`).
 
 ## Product direction
 
