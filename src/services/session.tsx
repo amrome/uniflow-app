@@ -129,7 +129,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         if (data.session) {
           const asStaff = (await AsyncStorage.getItem(STAFF_MODE_KEY)) === '1';
           const restored = await loadSession(data.session.user, asStaff);
-          if (active) setSession(restored);
+          if (restored.role === 'guest') {
+            // A guest visit is temporary: the next launch starts at Login, not in the old guest session.
+            await client.auth.signOut().catch(() => {});
+          } else if (active) {
+            setSession(restored);
+          }
         }
       } catch {
         // offline or revoked: fall through to the login screen

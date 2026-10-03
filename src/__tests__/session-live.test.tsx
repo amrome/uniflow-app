@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 // Rows the fake database returns, per table.
 const mockRows: Record<string, unknown> = {};
 const mockSignOut = jest.fn(() => Promise.resolve({ error: null }));
+// What a relaunch finds saved on the device (null = nobody signed in).
+let mockSaved: { user: { id: string } } | null = null;
 
 function mockBuilder(table: string) {
   const b: Record<string, unknown> = {};
@@ -18,7 +20,7 @@ jest.mock('@/lib/supabase', () => ({
   supabase: {
     from: (table: string) => mockBuilder(table),
     auth: {
-      getSession: () => Promise.resolve({ data: { session: null } }),
+      getSession: () => Promise.resolve({ data: { session: mockSaved } }),
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
       signInWithPassword: () => Promise.resolve({ data: { user: { id: 'u1' } }, error: null }),
       signOut: () => mockSignOut(),
@@ -57,6 +59,7 @@ async function mount() {
 beforeEach(() => {
   seenByChildEffect.length = 0;
   mockSignOut.mockClear();
+  mockSaved = null;
   mockRows.club_members = [];
   mockRows.instructors = null;
   mockRows.profiles = {
@@ -73,6 +76,18 @@ test('the user id is already stored when a child effect sees the new session', a
     await api().signInStudent('a@yu.edu.sa', 'pw');
   });
   expect(seenByChildEffect).toEqual(['u1']); // was null before the fix -> "You need to be signed in"
+});
+
+test('a relaunch restores a saved student but not a saved guest', async () => {
+  mockSaved = { user: { id: 'u1' } };
+  await mount();
+  expect(api().session?.role).toBe('student');
+
+  mockRows.profiles = { role: 'guest', full_name: 'Sara', email: null, phone: '+966555123456' };
+  mockSignOut.mockClear();
+  await mount();
+  expect(api().session).toBeNull(); // starts at Login, not in the old guest session
+  expect(mockSignOut).toHaveBeenCalled();
 });
 
 test('a student account stays a student (no staff screens)', async () => {

@@ -60,6 +60,7 @@ The README says services are mocked; check `src/services` to see what is already
 ## Navigation rules
 
 - Guests only get Food + Transport. The student-only tabs are hidden with `href: null`, but they still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
+- Launch: students and staff stay signed in (saved Supabase session is restored in `services/session.tsx`). A guest session is never restored: guests are signed out on relaunch, so the app starts at Login.
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
 
 ## Product direction
