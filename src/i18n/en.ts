@@ -147,6 +147,7 @@ export const en = {
     mapZoomOut: 'Zoom out',
     mapCampus: 'Go to campus',
     mapSabStation: 'Go to SAB Station',
+    mapOffline: 'The map needs an internet connection.',
     liveVehicles: 'Live vehicles',
     tracked: '{n} tracked',
     sabShuttle: 'SAB Shuttle',

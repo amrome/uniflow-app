@@ -1,44 +1,28 @@
-import {
-  Camera,
-  Map,
-  type CameraRef,
-  type MapRef,
-  type ViewStateChangeEvent,
-} from '@maplibre/maplibre-react-native';
 import { useRouter } from 'expo-router';
 import { useRef, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-  type NativeSyntheticEvent,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Button } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
+import { CampusWebMap, type CampusWebMapRef } from '@/features/transport/CampusWebMap';
 import {
-  CAMPUS_BEARING,
   CAMPUS_BUILDINGS,
   CAMPUS_VIEW_CENTER,
-  CAMPUS_PITCH,
-  CAMPUS_ZOOM,
   PLACES,
   SAB_STATION,
+  type LngLat,
 } from '@/features/transport/campusMapData';
-import { BuildingLayers, PlaceMarkers, useMapStyle } from '@/features/transport/mapShared';
 import { fmt, useI18n } from '@/i18n';
 import { fontFamily, typography, useTheme } from '@/theme';
 
-// Real 3D campus map: OpenFreeMap tiles drawn by MapLibre, with every building extruded. Needs a
-// development build (see README), not Expo Go.
+// Real 3D campus map: OpenFreeMap tiles drawn by MapLibre GL JS inside a WebView, with every
+// building extruded. Works in Expo Go; needs an internet connection.
 
 // Things the search box can jump to: the two pins plus any hand-drawn campus building.
-type SearchTarget = { en: string; ar: string; center: [number, number] };
+type SearchTarget = { en: string; ar: string; center: LngLat };
 
-function ringCenter(ring: number[][]): [number, number] {
+function ringCenter(ring: number[][]): LngLat {
   const n = Math.max(ring.length - 1, 1); // the last point repeats the first
   let x = 0;
   let y = 0;
@@ -66,20 +50,8 @@ export default function CampusMap3D() {
   const router = useRouter();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const mapStyle = useMapStyle();
-  const cameraRef = useRef<CameraRef>(null);
-  const mapRef = useRef<MapRef>(null);
-  const zoomRef = useRef(CAMPUS_ZOOM);
+  const mapRef = useRef<CampusWebMapRef>(null);
   const [query, setQuery] = useState('');
-
-  const flyTo = (center: [number, number], zoom = CAMPUS_ZOOM) =>
-    cameraRef.current?.flyTo({
-      center,
-      zoom,
-      pitch: CAMPUS_PITCH,
-      bearing: CAMPUS_BEARING,
-      duration: 1400,
-    });
 
   const search = () => {
     const q = query.trim().toLowerCase();
@@ -88,10 +60,8 @@ export default function CampusMap3D() {
     if (hit) flyTo(hit.center, 17);
   };
 
-  const zoomBy = (delta: number) =>
-    cameraRef.current?.zoomTo(Math.min(19, Math.max(11, zoomRef.current + delta)), {
-      duration: 250,
-    });
+  const flyTo = (center: LngLat, zoom?: number) => mapRef.current?.flyTo(center, zoom);
+  const zoomBy = (delta: number) => mapRef.current?.zoomBy(delta);
 
   const vehicles = [
     {
@@ -112,31 +82,7 @@ export default function CampusMap3D() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <Map
-        ref={mapRef}
-        style={StyleSheet.absoluteFill}
-        mapStyle={mapStyle}
-        logo={false}
-        compass
-        attributionPosition={{ bottom: 250, left: 8 }}
-        onRegionDidChange={(e: NativeSyntheticEvent<ViewStateChangeEvent>) => {
-          zoomRef.current = e.nativeEvent.zoom;
-        }}
-      >
-        <Camera
-          ref={cameraRef}
-          initialViewState={{
-            center: CAMPUS_VIEW_CENTER,
-            zoom: CAMPUS_ZOOM,
-            pitch: CAMPUS_PITCH,
-            bearing: CAMPUS_BEARING,
-          }}
-          minZoom={11}
-          maxZoom={19}
-        />
-        <BuildingLayers />
-        <PlaceMarkers />
-      </Map>
+      <CampusWebMap ref={mapRef} style={StyleSheet.absoluteFill} attributionBottom={250} />
 
       <View style={[styles.topRow, { top: insets.top + 16 }]}>
         <Pressable

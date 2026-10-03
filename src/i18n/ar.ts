@@ -149,6 +149,7 @@ export const ar: Translations = {
     mapZoomOut: 'تصغير',
     mapCampus: 'الذهاب إلى الجامعة',
     mapSabStation: 'الذهاب إلى محطة ساب',
+    mapOffline: 'تحتاج الخريطة إلى اتصال بالإنترنت.',
     liveVehicles: 'المركبات المباشرة',
     tracked: '{n} قيد التتبع',
     sabShuttle: 'حافلة SAB',

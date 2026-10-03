@@ -1,8 +1,11 @@
 // Real-world data for the 3D campus map. Coordinates are [longitude, latitude] (GeoJSON order,
 // the reverse of what Google Maps shows).
-import type { LngLat } from '@maplibre/maplibre-react-native';
+import type { FeatureCollection, Polygon } from 'geojson';
 
 import { campusBuildingFeatures, type CampusBuildingProps } from './campusBuildings';
+
+// [longitude, latitude]
+export type LngLat = [longitude: number, latitude: number];
 
 // Al-Yamamah University pin, from Google Maps.
 export const CAMPUS_CENTER: LngLat = [46.5937941, 24.863473];
@@ -34,7 +37,7 @@ export const CAMPUS_VIEW_CENTER: LngLat = [46.592045, 24.862944];
 // Hand-drawn buildings live in campusBuildings.ts (orange on the map, searchable by name).
 export type { CampusBuildingProps } from './campusBuildings';
 
-export const CAMPUS_BUILDINGS: GeoJSON.FeatureCollection<GeoJSON.Polygon, CampusBuildingProps> = {
+export const CAMPUS_BUILDINGS: FeatureCollection<Polygon, CampusBuildingProps> = {
   type: 'FeatureCollection',
   features: campusBuildingFeatures,
 };

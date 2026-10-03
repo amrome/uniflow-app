@@ -1,8 +1,10 @@
+import type { Feature, Polygon } from 'geojson';
+
 // Hand-drawn campus buildings (geojson.io), shown in brand orange on the 3D map.
 // `height` is in metres: change a number to make a building taller or shorter.
 export type CampusBuildingProps = { name?: string; name_ar?: string; height?: number | string };
 
-export const campusBuildingFeatures: GeoJSON.Feature<GeoJSON.Polygon, CampusBuildingProps>[] = [
+export const campusBuildingFeatures: Feature<Polygon, CampusBuildingProps>[] = [
   {
     type: 'Feature',
     properties: { name: 'Main building 2', name_ar: 'المبنى الرئيسي 2', height: 7 },
