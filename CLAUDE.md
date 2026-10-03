@@ -63,6 +63,12 @@ The README says services are mocked; check `src/services` to see what is already
 - Launch: students and staff stay signed in (saved Supabase session is restored in `services/session.tsx`). A guest session is never restored: guests are signed out on relaunch, so the app starts at Login.
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
 
+## Sharing the app for the demo
+
+- `npm start` only works for phones on the same Wi-Fi as the dev PC (LAN address). For people on other networks use `npm run start:tunnel` (PC must stay on).
+- Better for judges: EAS Update (`eas update`, runs in Expo Go with the PC off) or an Android APK (`eas build -p android --profile preview`). Neither is set up yet: no `eas.json`, needs an Expo account.
+- The `.env` Supabase keys are baked in when the bundle is built or published, so publish from a machine that has `.env`.
+
 ## Product direction
 
 - Now: hackathon live demo (Supabase demo project, mock fallback).

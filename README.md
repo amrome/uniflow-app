@@ -16,13 +16,14 @@ npm start        # scan the QR code with Expo Go
 
 ## Scripts
 
-| Command             | What it does        |
-| ------------------- | ------------------- |
-| `npm run typecheck` | TypeScript, no emit |
-| `npm run lint`      | ESLint              |
-| `npm run format`    | Prettier            |
-| `npm test`          | Jest                |
-| `npm run test:db`   | SQL + RLS in PGlite |
+| Command                | What it does                              |
+| ---------------------- | ----------------------------------------- |
+| `npm run start:tunnel` | Same as start, reachable from any network |
+| `npm run typecheck`    | TypeScript, no emit                       |
+| `npm run lint`         | ESLint                                    |
+| `npm run format`       | Prettier                                  |
+| `npm test`             | Jest                                      |
+| `npm run test:db`      | SQL + RLS in PGlite                       |
 
 ## Structure
 
