@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import type { BottomTabBarProps } from 'expo-router/js-tabs';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Icon, type IconName } from '@/components/icons';
@@ -9,6 +9,7 @@ import { useSession } from '@/services/session';
 import { shadows, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
+import { PressableScale } from './PressableScale';
 
 const icons: Record<string, IconName> = {
   home: 'home',
@@ -43,7 +44,9 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
     >
       {guest && (
         // The guest home lives outside the tabs, so it gets its own button (guests have no Home tab).
-        <Pressable
+        <PressableScale
+          scaleTo={0.9}
+          feedback="select"
           accessibilityRole="tab"
           accessibilityState={{ selected: false }}
           accessibilityLabel={t.tabs.home}
@@ -54,7 +57,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           <AppText variant="tiny" style={{ color: colors.textSecondary }} numberOfLines={1}>
             {t.tabs.home}
           </AppText>
-        </Pressable>
+        </PressableScale>
       )}
       {state.routes.map((route, index) => {
         const focused = state.index === index;
@@ -65,7 +68,9 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
         const label = typeof options.title === 'string' ? options.title : route.name;
         const color = focused ? colors.brandPrimary : colors.textSecondary;
         return (
-          <Pressable
+          <PressableScale
+            scaleTo={0.9}
+            feedback="select"
             key={route.key}
             accessibilityRole="tab"
             accessibilityState={{ selected: focused }}
@@ -86,12 +91,14 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             <AppText variant="tiny" style={{ color }} numberOfLines={1}>
               {label}
             </AppText>
-          </Pressable>
+          </PressableScale>
         );
       })}
       {guest && (
         // Student Affairs is open to guests; it sits with the other services in their bar.
-        <Pressable
+        <PressableScale
+          scaleTo={0.9}
+          feedback="select"
           accessibilityRole="tab"
           accessibilityState={{ selected: onAffairs }}
           accessibilityLabel={t.tabs.affairs}
@@ -106,7 +113,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
           >
             {t.tabs.affairs}
           </AppText>
-        </Pressable>
+        </PressableScale>
       )}
     </View>
   );

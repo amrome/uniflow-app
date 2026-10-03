@@ -5,9 +5,11 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Card, Chip, Screen, TopBar } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { CartBar, SearchField } from '@/features/food/components';
 import { fmt, useI18n } from '@/i18n';
 import { favoriteRestaurants, useRestaurants, type Restaurant } from '@/services/food';
+import { useDataLoading } from '@/services/data';
 import { useTheme } from '@/theme';
 
 // Figma 04 · Food Menu
@@ -25,6 +27,7 @@ export default function FoodMenu() {
     r.cuisine[language].toLowerCase().includes(q) ||
     r.menu.some((m) => m.name[language].toLowerCase().includes(q));
   const restaurants = useRestaurants();
+  const loading = useDataLoading();
   const list = restaurants.filter(matches);
   const favs = restaurants.filter((r) => favorites.includes(r.id));
   const rows: Restaurant[][] = [];
@@ -77,7 +80,13 @@ export default function FoodMenu() {
           </AppText>
         </View>
 
-        {list.length === 0 && (
+        {loading && restaurants.length === 0 && (
+          <View style={styles.row}>
+            <Skeleton height={170} style={styles.flex} />
+            <Skeleton height={170} style={styles.flex} />
+          </View>
+        )}
+        {!loading && list.length === 0 && (
           <AppText tone="secondary" align="center">
             {fmt(t.food.noResults, { q: query.trim() })}
           </AppText>

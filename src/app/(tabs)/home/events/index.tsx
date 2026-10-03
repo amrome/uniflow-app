@@ -4,8 +4,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, IconBubble, Screen, TopBar } from '@/components/ui';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { AllClubsSheet, EventRow } from '@/features/events/components';
 import { fmt, useI18n } from '@/i18n';
+import { useDataLoading } from '@/services/data';
 import {
   events,
   going,
@@ -26,6 +28,7 @@ export default function Events() {
   const router = useRouter();
   const all = publishedEvents(events.useValue());
   const clubs = useClubs();
+  const loading = useDataLoading();
   const goingIds = going.useValue();
   const [filter, setFilter] = useState<Filter>(params.club ? 'club' : 'all');
   const [clubId, setClubId] = useState<string | undefined>(params.club);
@@ -128,7 +131,14 @@ export default function Events() {
         </View>
       )}
 
-      {list.length === 0 && (
+      {loading && all.length === 0 && (
+        <View style={styles.section}>
+          {[0, 1, 2].map((i) => (
+            <Skeleton key={i} height={104} />
+          ))}
+        </View>
+      )}
+      {!loading && list.length === 0 && (
         <AppText tone="secondary" align="center" style={styles.empty}>
           {t.events.empty}
         </AppText>

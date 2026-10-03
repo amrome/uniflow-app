@@ -2,6 +2,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Card, Screen, TopBar } from '@/components/ui';
+import { PopIn } from '@/components/ui/Reveal';
 import { SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { formatTime } from '@/services/clock';
@@ -23,11 +24,11 @@ export default function OrderConfirmation() {
   return (
     <Screen header={<TopBar title={t.food.confirmTitle} onBack={done} />} gutter={32}>
       <View style={styles.body}>
-        <View style={[styles.check, { backgroundColor: colors.statusSuccess }]}>
+        <PopIn style={[styles.check, { backgroundColor: colors.statusSuccess }]}>
           <AppText size={44} weight="bold" tone="onBrand">
             ✓
           </AppText>
-        </View>
+        </PopIn>
         <AppText variant="display" align="center">
           {t.food.placed}
         </AppText>

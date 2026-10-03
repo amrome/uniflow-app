@@ -1,9 +1,10 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icons';
 import { useTheme } from '@/theme';
 
 import { AppText } from './AppText';
+import { PressableScale } from './PressableScale';
 
 type Tone = 'success' | 'successSoft' | 'neutral' | 'error' | 'brand' | 'brandSoft' | 'ink';
 
@@ -52,9 +53,11 @@ type FilterProps = {
 export function FilterChip({ label, selected, onPress, icon }: FilterProps) {
   const { colors } = useTheme();
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityState={{ selected }}
+      scaleTo={0.95}
+      feedback="select"
       onPress={onPress}
       style={[
         styles.filter,
@@ -71,7 +74,7 @@ export function FilterChip({ label, selected, onPress, icon }: FilterProps) {
       >
         {label}
       </AppText>
-    </Pressable>
+    </PressableScale>
   );
 }
 

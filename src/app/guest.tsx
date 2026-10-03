@@ -42,6 +42,7 @@ export default function GuestHome() {
       </View>
       <View style={styles.row}>
         <ServiceTile
+          index={0}
           icon="food"
           tone="ink"
           title={t.home.food}
@@ -49,6 +50,7 @@ export default function GuestHome() {
           onPress={() => router.push('/food')}
         />
         <ServiceTile
+          index={1}
           icon="bus"
           tone="ink"
           title={t.home.transport}
@@ -58,6 +60,7 @@ export default function GuestHome() {
       </View>
       <View style={styles.row}>
         <ServiceTile
+          index={2}
           icon="briefcase"
           tone="brand"
           title={t.home.affairs}

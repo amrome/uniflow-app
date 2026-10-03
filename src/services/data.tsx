@@ -18,10 +18,16 @@ import {
   timetables,
 } from './schedules';
 import { useSession } from './session';
+import { createStore } from './store';
 import { golfCartsStore, hydrateTransport, shuttleTimetable } from './transport';
+
+/** True while the first load after sign-in is running (screens show skeletons meanwhile). */
+export const dataLoading = createStore(false);
+export const useDataLoading = dataLoading.useValue;
 
 /** Loads everything the signed-in user can see. Each part fails on its own (and is reported). */
 export async function hydrateAll() {
+  dataLoading.set(true);
   await Promise.all(
     [
       getProfile,
@@ -33,10 +39,12 @@ export async function hydrateAll() {
       hydrateAffairs,
     ].map((load) => load().catch(reportError)),
   );
+  dataLoading.set(false);
 }
 
 /** Empties every store when someone signs out, so the next person never sees the last one's data. */
 export function resetData() {
+  dataLoading.set(false);
   [
     restaurantsStore,
     pastOrders,

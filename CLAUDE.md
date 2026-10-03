@@ -93,6 +93,17 @@ The README says services are mocked; check `src/services` to see what is already
 - Set it up with `supabase/07_demo_all_portals.sql`: create the user in Supabase (`@yu.edu.sa`, Auto Confirm), put the email at the top of the file, run it. It makes the account university admin + Sarah (instructor) + GDG club admin. To switch portal: Profile > Log out, then use the other door.
 - Capabilities come from the database: `profiles.role` admin/affairs = university admin, `instructors.profile_id` = instructor, a `club_members` admin row = club admin (`loadSession` in `services/session.tsx`).
 
+## Animation conventions
+
+- Durations: press feedback 100-150 ms, state changes 200-300 ms, entrances up to about 400 ms, nothing over 500 ms. Ease-out for things entering. Keep it few and consistent.
+- Press feedback: use `PressableScale` (`components/ui/PressableScale.tsx`, core Animated, native driver). `Button`, `Card` (when pressable), `FilterChip` and the tab bar already use it; use it for any new pressable.
+- Lists and grids: wrap items in `Reveal index={i}` (`components/ui/Reveal.tsx`, Reanimated `FadeInDown`, 50 ms stagger). `ServiceTile` takes an `index` prop. Used on Home, Guest home and the Student Affairs service rows.
+- "Done" moments: `PopIn` (spring zoom) on the order and parking confirmation check marks only (not on the Student Affairs ticket: the user asked for none there).
+- Loading: `Skeleton` (`components/ui/Skeleton.tsx`, pulsing grey block) while the first Supabase load runs. `useDataLoading()` from `services/data.tsx` is true during that load; Food, Events and Student Affairs show skeletons when it is true and their list is still empty. Mock mode never loads, so never shows them.
+- Lists that change: `AnimatedItem` (fade in, fade out, neighbours glide) on the cart lines and "Your tickets". Toast uses `toastEntering` / `toastExiting` (soft spring in, quick out); `ConfirmDialog` card uses `DialogIn`. All of these live in `components/ui/Reveal.tsx`.
+- Haptics: `haptic.tap / select / success` from `src/lib/haptics.ts` (expo-haptics, never throws). `PressableScale` fires `tap` (or `select` for tabs and chips) on press; `PopIn` fires `success`. Use `feedback="none"` to turn it off for one control.
+- Jest has no Reanimated runtime, so `jest.setup.js` replaces everything exported from `Reveal.tsx` with plain Views (and mocks `expo-haptics`). New Reanimated wrappers must be added to that mock.
+
 ## Product direction
 
 - Now: hackathon live demo (Supabase demo project, mock fallback).

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Linking, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Screen, TopBar } from '@/components/ui';
+import { PopIn } from '@/components/ui/Reveal';
 import { fmt, useI18n } from '@/i18n';
 import { reservation } from '@/services/parking';
 import { useTheme } from '@/theme';
@@ -25,11 +26,11 @@ export default function ParkingReserved() {
   return (
     <Screen header={<TopBar title={t.parking.reservedTitle} onBack={done} />} gutter={32}>
       <View style={styles.body}>
-        <View style={[styles.check, { backgroundColor: colors.statusSuccess }]}>
+        <PopIn style={[styles.check, { backgroundColor: colors.statusSuccess }]}>
           <AppText size={44} weight="bold" tone="onBrand">
             ✓
           </AppText>
-        </View>
+        </PopIn>
         <AppText variant="display" align="center">
           {t.parking.reserved}
         </AppText>

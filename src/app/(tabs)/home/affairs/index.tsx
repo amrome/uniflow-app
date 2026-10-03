@@ -4,6 +4,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Button, Screen, TopBar } from '@/components/ui';
+import { AnimatedItem, Reveal } from '@/components/ui/Reveal';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { fmt, useI18n } from '@/i18n';
 import {
   MAX_TICKETS,
@@ -13,6 +15,7 @@ import {
   tickets,
   useAffairsServices,
 } from '@/services/affairs';
+import { useDataLoading } from '@/services/data';
 import { reportError } from '@/services/errors';
 import { formatTime } from '@/services/clock';
 import { useTheme } from '@/theme';
@@ -24,6 +27,7 @@ export default function StudentAffairs() {
   const router = useRouter();
   const myTickets = tickets.useValue();
   const affairsServices = useAffairsServices();
+  const loading = useDataLoading();
   const [serviceId, setServiceId] = useState('scholarships');
   const [slot, setSlot] = useState<number | 'next'>('next');
   const service = affairsServices.find((s) => s.id === serviceId) ?? affairsServices[0];
@@ -69,94 +73,103 @@ export default function StudentAffairs() {
           </AppText>
           <View style={styles.services}>
             {myTickets.map((tk) => (
-              <Pressable
-                key={tk.id}
-                accessibilityRole="button"
-                onPress={() =>
-                  router.push({ pathname: '/home/affairs/ticket', params: { id: tk.id } })
-                }
-                style={[styles.service, { backgroundColor: colors.brandPrimarySoft }]}
-              >
-                <View style={styles.flex}>
-                  <AppText variant="bodySmall" weight="semibold">
-                    {tk.number} ·{' '}
-                    {affairsServices.find((s) => s.id === tk.serviceId)?.name[language]}
-                  </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    {fmt(t.affairs.ahead2, { n: tk.ahead })}
-                  </AppText>
-                </View>
-                <Icon name="chevronRight" size={18} color={colors.textSecondary} flipRTL />
-              </Pressable>
+              <AnimatedItem key={tk.id}>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() =>
+                    router.push({ pathname: '/home/affairs/ticket', params: { id: tk.id } })
+                  }
+                  style={[styles.service, { backgroundColor: colors.brandPrimarySoft }]}
+                >
+                  <View style={styles.flex}>
+                    <AppText variant="bodySmall" weight="semibold">
+                      {tk.number} ·{' '}
+                      {affairsServices.find((s) => s.id === tk.serviceId)?.name[language]}
+                    </AppText>
+                    <AppText variant="caption" tone="secondary">
+                      {fmt(t.affairs.ahead2, { n: tk.ahead })}
+                    </AppText>
+                  </View>
+                  <Icon name="chevronRight" size={18} color={colors.textSecondary} flipRTL />
+                </Pressable>
+              </AnimatedItem>
             ))}
           </View>
         </>
       )}
       <AppText variant="bodyStrong">{t.affairs.service}</AppText>
+      {loading && affairsServices.length === 0 && (
+        <View style={styles.services}>
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} height={64} />
+          ))}
+        </View>
+      )}
       <View style={styles.services}>
-        {affairsServices.map((s) => {
+        {affairsServices.map((s, i) => {
           const on = s.id === serviceId;
           return (
-            <Pressable
-              key={s.id}
-              accessibilityRole="radio"
-              accessibilityState={{ selected: on }}
-              onPress={() => setServiceId(s.id)}
-              style={[
-                styles.service,
-                on
-                  ? {
-                      backgroundColor: colors.backgroundPrimary,
-                      borderColor: colors.brandPrimary,
-                      borderWidth: 2,
-                    }
-                  : {
-                      backgroundColor: colors.backgroundSurface,
-                      borderColor: 'transparent',
-                      borderWidth: 2,
-                    },
-              ]}
-            >
-              <View
+            <Reveal key={s.id} index={i}>
+              <Pressable
+                accessibilityRole="radio"
+                accessibilityState={{ selected: on }}
+                onPress={() => setServiceId(s.id)}
                 style={[
-                  styles.letter,
-                  { backgroundColor: on ? colors.brandPrimary : colors.backgroundPrimary },
-                ]}
-              >
-                <AppText variant="title" tone={on ? 'onBrand' : 'brand'}>
-                  {s.letter}
-                </AppText>
-              </View>
-              <View style={styles.flex}>
-                <AppText variant="bodySmall" weight="semibold">
-                  {s.name[language]}
-                </AppText>
-                <View style={styles.meta}>
-                  <Icon name="users" size={13} color={colors.textSecondary} />
-                  <AppText variant="caption" tone="secondary">
-                    {fmt(t.affairs.waiting, { n: s.waiting })}
-                  </AppText>
-                  <AppText variant="caption" tone="secondary">
-                    ·
-                  </AppText>
-                  <Icon name="clock" size={13} color={colors.textSecondary} />
-                  <AppText variant="caption" tone="secondary">
-                    {fmt(t.affairs.wait, { n: s.waitMin })}
-                  </AppText>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.radio,
+                  styles.service,
                   on
-                    ? { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary }
-                    : {
-                        borderColor: colors.borderDefault,
+                    ? {
                         backgroundColor: colors.backgroundPrimary,
+                        borderColor: colors.brandPrimary,
+                        borderWidth: 2,
+                      }
+                    : {
+                        backgroundColor: colors.backgroundSurface,
+                        borderColor: 'transparent',
+                        borderWidth: 2,
                       },
                 ]}
-              />
-            </Pressable>
+              >
+                <View
+                  style={[
+                    styles.letter,
+                    { backgroundColor: on ? colors.brandPrimary : colors.backgroundPrimary },
+                  ]}
+                >
+                  <AppText variant="title" tone={on ? 'onBrand' : 'brand'}>
+                    {s.letter}
+                  </AppText>
+                </View>
+                <View style={styles.flex}>
+                  <AppText variant="bodySmall" weight="semibold">
+                    {s.name[language]}
+                  </AppText>
+                  <View style={styles.meta}>
+                    <Icon name="users" size={13} color={colors.textSecondary} />
+                    <AppText variant="caption" tone="secondary">
+                      {fmt(t.affairs.waiting, { n: s.waiting })}
+                    </AppText>
+                    <AppText variant="caption" tone="secondary">
+                      ·
+                    </AppText>
+                    <Icon name="clock" size={13} color={colors.textSecondary} />
+                    <AppText variant="caption" tone="secondary">
+                      {fmt(t.affairs.wait, { n: s.waitMin })}
+                    </AppText>
+                  </View>
+                </View>
+                <View
+                  style={[
+                    styles.radio,
+                    on
+                      ? { backgroundColor: colors.brandPrimary, borderColor: colors.brandPrimary }
+                      : {
+                          borderColor: colors.borderDefault,
+                          backgroundColor: colors.backgroundPrimary,
+                        },
+                  ]}
+                />
+              </Pressable>
+            </Reveal>
           );
         })}
       </View>
