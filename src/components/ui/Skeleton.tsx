@@ -16,12 +16,12 @@ export function Skeleton({
   style?: StyleProp<ViewStyle>;
 }) {
   const { colors } = useTheme();
-  const [pulse] = useState(() => new Animated.Value(0.55));
+  const [pulse] = useState(() => new Animated.Value(0.7));
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 0.55, duration: 800, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1, duration: 900, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 0.7, duration: 900, useNativeDriver: true }),
       ]),
     );
     loop.start();

@@ -49,9 +49,9 @@ export function PopIn({ children, style, delay = 120 }: BoxProps & { delay?: num
 export function AnimatedItem({ children, style }: BoxProps) {
   return (
     <Animated.View
-      entering={FadeIn.duration(220)}
-      exiting={FadeOut.duration(150)}
-      layout={LinearTransition.duration(220)}
+      entering={FadeIn.duration(150)}
+      exiting={FadeOut.duration(100)}
+      layout={LinearTransition.duration(160)}
       style={style}
     >
       {children}
@@ -59,15 +59,15 @@ export function AnimatedItem({ children, style }: BoxProps) {
   );
 }
 
-/** The dialog card eases in (a small zoom) on top of the dimmed backdrop. */
+/** The dialog card fades in quickly on top of the dimmed backdrop (no zoom, no bounce). */
 export function DialogIn({ children, style }: BoxProps) {
   return (
-    <Animated.View entering={ZoomIn.duration(200)} style={style}>
+    <Animated.View entering={FadeIn.duration(150)} style={style}>
       {children}
     </Animated.View>
   );
 }
 
-/** Toast banner: drops in with a soft spring, leaves quickly (exits are shorter than entrances). */
-export const toastEntering = FadeInUp.springify().damping(15);
-export const toastExiting = FadeOutUp.duration(200);
+/** Toast banner: a short slide down with no bounce, and an even quicker exit. */
+export const toastEntering = FadeInUp.duration(200);
+export const toastExiting = FadeOutUp.duration(140);
