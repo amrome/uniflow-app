@@ -70,7 +70,11 @@ export default function RestaurantMenu() {
                   </AppText>
                 </View>
               )}
-              <Chip label={t.food.available} tone="successSoft" dot />
+              {r.closed ? (
+                <Chip label={t.food.closed} tone="error" dot />
+              ) : (
+                <Chip label={t.food.available} tone="successSoft" dot />
+              )}
             </View>
             <View style={styles.metaRow}>
               <Icon name="clock" size={13} color={colors.brandPrimary} />
@@ -98,7 +102,15 @@ export default function RestaurantMenu() {
           </Pressable>
         </Card>
 
-        {favOrder && (
+        {r.closed && (
+          <Card tone="surface">
+            <AppText variant="bodySmall" tone="secondary">
+              {fmt(t.food.closedBody, { restaurant: r.name[language] })}
+            </AppText>
+          </Card>
+        )}
+
+        {favOrder && !r.closed && (
           <View
             style={[
               styles.favOrder,
@@ -179,8 +191,9 @@ export default function RestaurantMenu() {
         <View style={styles.items}>
           {items.map((m) => {
             const qty = cart.qtyOf(m.id);
+            const unavailable = m.soldOut || r.closed;
             return (
-              <Card key={m.id} style={styles.item}>
+              <Card key={m.id} style={[styles.item, m.soldOut && styles.soldOut]}>
                 <View style={[styles.emoji, { backgroundColor: m.bg }]}>
                   <AppText size={26}>{m.emoji}</AppText>
                 </View>
@@ -204,7 +217,9 @@ export default function RestaurantMenu() {
                     )}
                   </View>
                 </View>
-                {qty > 0 ? (
+                {m.soldOut ? (
+                  <Chip label={t.food.soldOut} />
+                ) : unavailable ? null : qty > 0 ? (
                   <Stepper qty={qty} onInc={() => add(m)} onDec={() => cart.decrement(m.id)} />
                 ) : (
                   <Pressable
@@ -283,5 +298,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   popular: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 6 },
+  soldOut: { opacity: 0.55 },
   addBtn: { paddingHorizontal: 16, paddingVertical: 7, borderRadius: 14, borderWidth: 1 },
 });

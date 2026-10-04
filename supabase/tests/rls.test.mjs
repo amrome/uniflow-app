@@ -489,6 +489,83 @@ ok(
   (await as(db, stu, 'select * from instructor_prefs')).rows.length === 1,
 );
 
+console.log('\n-- restaurant portal (08_restaurant_portal.sql)');
+const ipad = await mk('kafton.ipad@yu.edu.sa', 'Kafton iPad');
+await db.query(`update restaurants set manager_id = $1 where slug = 'kafton'`, [ipad]);
+const kOrder = (await as(db, stu2, `select * from place_order('${kafton}', '${items}'::jsonb)`))
+  .rows[0];
+const board = (await as(db, ipad, `select kitchen_orders('${kafton}') as j`)).rows[0].j;
+const kRow = board.find((o) => o.id === kOrder.id);
+ok(
+  "kitchen sees today's orders with items",
+  board.length === 3 &&
+    kRow?.customer_name === 'Second Student' &&
+    kRow.items.length === 2 &&
+    kRow.items.some((i) => i.name_en === 'Chicken Shawarma Wrap' && i.quantity === 2),
+  JSON.stringify(board.map((o) => [o.order_number, o.status, o.items.length])),
+);
+await fails(
+  "a student cannot open a restaurant's board",
+  as(db, stu, `select kitchen_orders('${kafton}')`),
+  'Not allowed',
+);
+await fails(
+  "a restaurant cannot open another restaurant's board",
+  as(db, ipad, `select kitchen_orders('${archi}')`),
+  'Not allowed',
+);
+const statusOf = async (id) =>
+  (await db.query('select status from orders where id=$1', [id])).rows[0].status;
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'preparing')`);
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'ready')`);
+ok('kitchen moves an order to ready', (await statusOf(kOrder.id)) === 'ready');
+ok(
+  'the student sees the order is ready',
+  (await as(db, stu2, `select status from orders where id='${kOrder.id}'`)).rows[0]?.status ===
+    'ready',
+);
+await fails(
+  'a ready order cannot be cancelled',
+  as(db, ipad, `select set_order_status('${kOrder.id}', 'cancelled')`),
+  'already ready',
+);
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'completed')`);
+ok('kitchen marks it picked up', (await statusOf(kOrder.id)) === 'completed');
+await fails(
+  'a student cannot change order status',
+  as(db, stu2, `select set_order_status('${kOrder.id}', 'preparing')`),
+  'Not allowed',
+);
+await fails(
+  'a cancelled order stays cancelled',
+  as(db, ipad, `select set_order_status('${order.id}', 'preparing')`),
+  'already cancelled',
+);
+const kunafaId = (await db.query(`select id from menu_items where slug = 'k-kunafa'`)).rows[0].id;
+await as(db, ipad, `update menu_items set is_available = false where id = '${kunafaId}'`);
+await as(db, ipad, `update restaurants set is_open = false, prep_min = 20 where id = '${kafton}'`);
+const kNow = (await db.query('select is_open, prep_min from restaurants where id=$1', [kafton]))
+  .rows[0];
+const kunafa = (await db.query('select is_available from menu_items where id=$1', [kunafaId]))
+  .rows[0];
+ok(
+  'restaurant marks an item sold out, closes and sets prep time',
+  kunafa.is_available === false && kNow.is_open === false && kNow.prep_min === 20,
+);
+await fails(
+  'a closed restaurant takes no orders',
+  as(db, stu, `select * from place_order('${kafton}', '${items}'::jsonb)`),
+  'not taking orders',
+);
+await as(db, ipad, `update menu_items set is_available = false where restaurant_id = '${archi}'`);
+ok(
+  "a restaurant cannot edit another restaurant's menu",
+  (await db.query(`select count(*)::int as n from menu_items where restaurant_id=$1 and not is_available`, [archi]))
+    .rows[0].n === 0,
+);
+await db.query(`update restaurants set is_open = true, prep_min = 12 where id = $1`, [kafton]);
+await db.query(`update menu_items set is_available = true where id = $1`, [kunafaId]);
+
 console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
 const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
 const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');
@@ -508,6 +585,12 @@ ok(
 );
 await db.exec(helper);
 ok('the helper can run twice', true);
+await db.exec(readFileSync(new URL('../08_restaurant_portal.sql', import.meta.url), 'utf8'));
+ok(
+  'the demo account is also the Kafton restaurant (08)',
+  (await db.query(`select manager_id from restaurants where slug = 'kafton'`)).rows[0]
+    .manager_id === all,
+);
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

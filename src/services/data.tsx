@@ -6,7 +6,15 @@ import { hydrateAffairs, refreshTickets, affairsServicesStore, tickets } from '.
 import { db, live } from './backend';
 import { reportError } from './errors';
 import { clubsStore, events, going, hydrateEvents } from './events';
-import { favoriteRestaurants, hydrateFood, pastOrders, restaurantsStore } from './food';
+import {
+  favoriteRestaurants,
+  hydrateFood,
+  orderStatuses,
+  pastOrders,
+  refreshMyOrders,
+  restaurantsStore,
+} from './food';
+import { hydrateKitchen, resetKitchen } from './kitchen';
 import { freeZonesStore, hydrateParking, paidZoneStore, reservation, spotAlerts } from './parking';
 import { getProfile, profileStore } from './profile';
 import {
@@ -48,6 +56,7 @@ export function resetData() {
   [
     restaurantsStore,
     pastOrders,
+    orderStatuses,
     shuttleTimetable,
     golfCartsStore,
     paidZoneStore,
@@ -66,6 +75,7 @@ export function resetData() {
   [favoriteRestaurants, spotAlerts, favoriteInstructors, notifyInstructors].forEach((set) =>
     set.reset(),
   );
+  resetKitchen();
 }
 
 const debounced = (fn: () => Promise<unknown>) => {
@@ -76,20 +86,33 @@ const debounced = (fn: () => Promise<unknown>) => {
   };
 };
 
-/** Live updates: parking counts push instantly; the queue is re-read when anything changes. */
-function subscribeLive(): () => void {
+/**
+ * Live updates: parking counts push instantly; the queue is re-read when anything changes.
+ * Orders: the restaurant iPad (`kitchen` = its slug) re-reads its board, a student re-reads the
+ * status of their own orders. Menus and open/closed changes reach students straight away.
+ */
+function subscribeLive(kitchen?: string): () => void {
   const client = db();
   const parking = debounced(hydrateParking);
   const queue = debounced(hydrateAffairs);
+  const food = debounced(hydrateFood);
+  const orders = kitchen ? debounced(() => hydrateKitchen(kitchen)) : debounced(refreshMyOrders);
   const channel = client
     .channel('uniflow-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, parking)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_lots' }, parking)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_tickets' }, queue)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, orders)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, food)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'restaurants' }, food)
     .subscribe();
   // Other people being served doesn't change *your* row, so also re-check your place regularly.
+  // The restaurant board is re-read too, in case a realtime message is missed.
   const poll = setInterval(() => {
     if (tickets.get().length) refreshTickets().catch(() => {});
+    if (kitchen) hydrateKitchen(kitchen).catch(() => {});
+    else if (Object.values(orderStatuses.get()).some((s) => s !== 'completed' && s !== 'cancelled'))
+      refreshMyOrders().catch(() => {});
   }, 15_000);
   return () => {
     clearInterval(poll);
@@ -101,6 +124,7 @@ function subscribeLive(): () => void {
 export function DataProvider({ children }: { children: ReactNode }) {
   const { session } = useSession();
   const userId = session?.userId;
+  const kitchen = session?.role === 'restaurant' ? session.restaurantId : undefined;
 
   useEffect(() => {
     if (!live) return;
@@ -109,8 +133,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       return;
     }
     hydrateAll();
-    return subscribeLive();
-  }, [userId]);
+    if (kitchen) hydrateKitchen(kitchen).catch(reportError);
+    return subscribeLive(kitchen);
+  }, [userId, kitchen]);
 
   return (
     <>

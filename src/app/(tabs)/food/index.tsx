@@ -137,6 +137,8 @@ function RestaurantCard({ r }: { r: Restaurant }) {
         </AppText>
         {r.comingSoon ? (
           <Chip label={t.food.openingSoon} />
+        ) : r.closed ? (
+          <Chip label={t.food.closed} tone="error" dot />
         ) : (
           <View style={styles.meta}>
             <View style={[styles.time, { backgroundColor: 'rgba(246,137,56,0.12)' }]}>

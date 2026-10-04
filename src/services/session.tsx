@@ -17,7 +17,7 @@ import { authUserId, db, live, ok } from './backend';
 // Who is using the app. Staff roles come from the Staff Login screen (13 · Staff Login). With a
 // backend the role is decided by the database (profiles.role + the pre-approved staff_emails
 // list); without one it is detected from the email, as in the prototype.
-export type Role = 'student' | 'guest' | 'instructor' | 'clubAdmin' | 'uniAdmin';
+export type Role = 'student' | 'guest' | 'instructor' | 'clubAdmin' | 'uniAdmin' | 'restaurant';
 export type StaffRole = Exclude<Role, 'student' | 'guest'>;
 
 export type Session = {
@@ -30,6 +30,8 @@ export type Session = {
   instructorId?: string;
   /** Slug of the club this account administers (club admins). */
   clubId?: string;
+  /** Slug of the restaurant this account runs (the restaurant's iPad). */
+  restaurantId?: string;
 };
 
 type SessionContextValue = {
@@ -46,9 +48,13 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-/** Mock role detection: club/president → club admin, staff/admin → university, else instructor. */
+/**
+ * Mock role detection: restaurant/kitchen → restaurant, club/president → club admin,
+ * staff/admin → university, else instructor.
+ */
 export function detectStaffRole(email: string): StaffRole {
   const e = email.toLowerCase();
+  if (e.includes('restaurant') || e.includes('kitchen') || e.includes('kafton')) return 'restaurant';
   if (e.includes('president') || e.includes('club')) return 'clubAdmin';
   if (e.includes('admin') || e.includes('staff') || e.includes('affairs')) return 'uniAdmin';
   return 'instructor';
@@ -59,12 +65,14 @@ export const staffHome = {
   instructor: '/staff/instructor',
   clubAdmin: '/staff/club',
   uniAdmin: '/staff/admin',
+  restaurant: '/staff/restaurant',
 } as const;
 
 export const staffDemoEmails = {
   instructor: 's.alotaibi@yu.edu.sa',
   clubAdmin: 'gdg.president@yu.edu.sa',
   uniAdmin: 'student.affairs@yu.edu.sa',
+  restaurant: 'kafton.restaurant@yu.edu.sa',
 } as const;
 
 const STAFF_MODE_KEY = 'uniflow.staffMode';
@@ -88,17 +96,17 @@ type ProfileRow = {
   phone: string | null;
 };
 
-const STAFF_ROLES: StaffRole[] = ['instructor', 'clubAdmin', 'uniAdmin'];
+const STAFF_ROLES: StaffRole[] = ['instructor', 'clubAdmin', 'uniAdmin', 'restaurant'];
 
 /**
  * Builds the app session for a signed-in user from the database.
- * One account can hold several roles (university admin, instructor, club admin). The login screen
- * decides which portal opens: the normal Login is always the student portal; the Staff login opens
- * `wantRole` when the account has it, otherwise the account's first staff role.
+ * One account can hold several roles (university admin, instructor, club admin, restaurant). The
+ * login screen decides which portal opens: the normal Login is always the student portal; the
+ * Staff login opens `wantRole` when the account has it, otherwise the account's first staff role.
  */
 async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): Promise<Session> {
   const client = db();
-  const [profile, clubs, instructor] = await Promise.all([
+  const [profile, clubs, instructor, restaurants] = await Promise.all([
     ok<ProfileRow>(
       client.from('profiles').select('role, full_name, email, phone').eq('id', user.id).single(),
     ),
@@ -108,12 +116,17 @@ async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): 
     ok<{ slug: string } | null>(
       client.from('instructors').select('slug').eq('profile_id', user.id).maybeSingle(),
     ),
+    ok<{ slug: string }[] | null>(
+      client.from('restaurants').select('slug').eq('manager_id', user.id),
+    ),
   ]);
   const clubId = clubs[0]?.clubs?.slug ?? undefined;
+  const restaurantId = restaurants?.[0]?.slug ?? undefined;
   const can: StaffRole[] = [];
   if (profile.role === 'admin' || profile.role === 'affairs') can.push('uniAdmin');
   if (profile.role === 'instructor' || instructor) can.push('instructor');
   if (clubId) can.push('clubAdmin');
+  if (restaurantId) can.push('restaurant');
   let role: Role;
   if (profile.role === 'guest') role = 'guest';
   else if (!asStaff) role = 'student';
@@ -126,6 +139,7 @@ async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): 
     userId: user.id,
     instructorId: instructor?.slug,
     clubId,
+    restaurantId,
   };
 }
 
@@ -260,6 +274,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           email,
           instructorId: resolved === 'instructor' ? 'sarah' : undefined,
           clubId: resolved === 'clubAdmin' ? 'gdg' : undefined,
+          restaurantId: resolved === 'restaurant' ? 'kafton' : undefined,
         };
         setSession(s);
         return s;

@@ -62,6 +62,7 @@ beforeEach(() => {
   mockSaved = null;
   mockRows.club_members = [];
   mockRows.instructors = null;
+  mockRows.restaurants = [];
   mockRows.profiles = {
     role: 'student',
     full_name: 'Amro Elian',
@@ -155,4 +156,15 @@ test('a club president gets the club admin role only through staff login', async
   });
   expect([viaStudent, viaStaff]).toEqual(['student', 'clubAdmin']);
   expect(api().session?.clubId).toBe('gdg');
+});
+
+test('a restaurant account opens the Restaurant portal with its restaurant', async () => {
+  mockRows.restaurants = [{ slug: 'kafton' }];
+  await mount();
+  let role = '';
+  await act(async () => {
+    role = (await api().signInStaff('kafton@yu.edu.sa', 'pw')).role;
+  });
+  expect(role).toBe('restaurant');
+  expect(api().session?.restaurantId).toBe('kafton');
 });

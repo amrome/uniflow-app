@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -16,9 +16,17 @@ The README says services are mocked; check `src/services` to see what is already
 - DB decisions: bilingual `*_en` / `*_ar` columns; uuid PKs plus a `slug` (routes use slugs, DB writes use `dbId`); Student Affairs is a live queue (no helpdesk tickets tables).
 - Roles: pre-approved `staff_emails` list. University admin gets `admin`, club admin is a `club_members` row, instructor is linked by `instructors.email`.
 - Stores (`createStore` in `services/store.ts`) are the cache. Services hydrate them after sign-in (`services/data.tsx`) and write through (optimistic, rollback via `reportError`). New data needs three things: SQL, a mapper in the service, a hydrate call.
-- Multi-step writes are SQL RPCs: `place_order`, `reserve_parking`, `book_queue_ticket`, `save_week`, `save_portal`, `save_shuttle_times`.
-- `npm run test:db` runs the SQL and RLS in PGlite (74 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
+- Multi-step writes are SQL RPCs: `place_order`, `reserve_parking`, `book_queue_ticket`, `save_week`, `save_portal`, `save_shuttle_times`, `kitchen_orders`, `set_order_status`.
+- `npm run test:db` runs the SQL and RLS in PGlite (95 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
 - Not yet verified against a real Supabase project (needs the user's keys): auth emails, anonymous sign-in, realtime channels, PostgREST embeds (`clubs(slug)` etc.).
+
+## Restaurant portal (iPad in each restaurant)
+
+- Staff role `restaurant` (`session.restaurantId` = slug). Live: the account is `restaurants.manager_id` (patch `08_restaurant_portal.sql`, demo block at its end). Mock: the Staff login "Restaurant" chip, or an email containing restaurant/kitchen/kafton, opens Kafton.
+- Screens: `src/app/staff/restaurant.tsx` (orders board: New → Preparing → Ready → Picked up, reject before ready; three columns when the screen is 760 px or wider, chips on phones) and `restaurant-menu.tsx` (open/closed, prep time, sold-out switches). No Figma frames exist for these; they reuse the staff look (ink header, cards).
+- Service `src/services/kitchen.ts`: `kitchenOrders` store, `hydrateKitchen` (RPC `kitchen_orders`), `setOrderStatus` (RPC `set_order_status`, which enforces the order of steps), `setSoldOut`, `updateRestaurant`. The restaurant and menu live in the food store, so students see changes at once.
+- Students: sold-out items stay listed but greyed with a "Sold out" chip (`MenuItem.soldOut`, from `is_available`); a closed restaurant (`Restaurant.closed`, from `is_open`) shows "Closed now" and no Add buttons. The order confirmation screen shows live progress (`orderStatuses` / `useOrderStatus` in `food.ts`).
+- Live updates: `data.tsx` listens to `orders`, `menu_items`, `restaurants` (realtime) and polls the board every 15 s. In mock mode an order placed on the same device reaches the board through `mockOrderListeners`.
 
 ## Design source (Figma)
 

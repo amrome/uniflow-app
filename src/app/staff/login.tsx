@@ -38,6 +38,7 @@ export default function StaffLogin() {
     ['instructor', t.staff.demoInstructor],
     ['clubAdmin', t.staff.demoClub],
     ['uniAdmin', t.staff.demoUni],
+    ['restaurant', t.staff.demoRestaurant],
   ];
 
   return (
