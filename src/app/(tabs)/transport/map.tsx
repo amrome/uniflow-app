@@ -1,10 +1,18 @@
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  Animated,
+  Dimensions,
+  PanResponder,
+  Pressable,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AppText, Button } from '@/components/ui';
-import { useToast } from '@/components/ui/Toast';
+import { AppText } from '@/components/ui';
 import { CampusWebMap, type CampusWebMapRef } from '@/features/transport/CampusWebMap';
 import { VehicleSheet } from '@/features/transport/VehicleSheet';
 import {
@@ -56,13 +64,53 @@ export default function CampusMap3D() {
   const { t, language, isRTL } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const toast = useToast();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<CampusWebMapRef>(null);
   const [query, setQuery] = useState('');
   const [vehicles, setVehicles] = useState<Vehicle[]>(() => startTracking());
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
   const routesDrawn = useRef(false);
+
+  // ── Draggable bottom sheet ──────────────────────────────────────────────────
+  const screenH = Dimensions.get('window').height;
+  const SHEET_PEEK = 280; // collapsed height
+  const SHEET_MAX = screenH * 0.65; // expanded height
+  const [sheetY] = useState(() => new Animated.Value(0));
+  const lastY = useRef(0);
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => true,
+        onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 4,
+        onPanResponderGrant: () => {
+          sheetY.setOffset(lastY.current);
+          sheetY.setValue(0);
+        },
+        onPanResponderMove: (_, g) => {
+          // negative dy = dragging up (expand), positive = dragging down (collapse)
+          const raw = lastY.current + g.dy;
+          const clamped = Math.min(0, Math.max(-(SHEET_MAX - SHEET_PEEK), raw));
+          sheetY.setOffset(0);
+          sheetY.setValue(clamped);
+        },
+        onPanResponderRelease: (_, g) => {
+          sheetY.flattenOffset();
+          const current = lastY.current + g.dy;
+          const mid = -(SHEET_MAX - SHEET_PEEK) / 2;
+          // Snap: if past halfway or fast flick, expand; otherwise collapse
+          const expand = g.vy < -0.5 || (g.vy <= 0.5 && current < mid);
+          const target = expand ? -(SHEET_MAX - SHEET_PEEK) : 0;
+          lastY.current = target;
+          Animated.spring(sheetY, {
+            toValue: target,
+            useNativeDriver: true,
+            damping: 20,
+            stiffness: 200,
+          }).start();
+        },
+      }),
+    [sheetY, SHEET_MAX, SHEET_PEEK],
+  );
 
   // Subscribe to position updates; stop on unmount.
   useEffect(() => {
@@ -169,21 +217,29 @@ export default function CampusMap3D() {
       {selectedVehicle ? (
         <VehicleSheet vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} />
       ) : (
-        <View
+        <Animated.View
           style={[
             styles.sheet,
-            { backgroundColor: colors.backgroundPrimary, paddingBottom: insets.bottom + 12 },
+            {
+              backgroundColor: colors.backgroundPrimary,
+              paddingBottom: insets.bottom + 12,
+              height: SHEET_MAX,
+              bottom: -(SHEET_MAX - SHEET_PEEK),
+              transform: [{ translateY: sheetY }],
+            },
           ]}
         >
-          <View style={[styles.grabber, { backgroundColor: colors.borderDefault }]} />
-          <View style={styles.sheetHead}>
-            <AppText variant="bodyStrong" weight="bold" size={16}>
-              {t.transport.liveVehicles}
-            </AppText>
-            <View style={styles.trackedDot} />
-            <AppText variant="caption" tone="secondary">
-              {fmt(t.transport.tracked, { n: vehicles.length })}
-            </AppText>
+          <View {...panResponder.panHandlers}>
+            <View style={[styles.grabber, { backgroundColor: colors.borderDefault }]} />
+            <View style={styles.sheetHead}>
+              <AppText variant="bodyStrong" weight="bold" size={16}>
+                {t.transport.liveVehicles}
+              </AppText>
+              <View style={styles.trackedDot} />
+              <AppText variant="caption" tone="secondary">
+                {fmt(t.transport.tracked, { n: vehicles.length })}
+              </AppText>
+            </View>
           </View>
           {vehicles.map((v) => (
             <Pressable
@@ -210,17 +266,7 @@ export default function CampusMap3D() {
               </View>
             </Pressable>
           ))}
-          <Button
-            label={t.transport.notifyNear}
-            onPress={() =>
-              toast.show({
-                emoji: '🚌',
-                title: t.transport.notifyToastTitle,
-                body: t.transport.notifyToastBody,
-              })
-            }
-          />
-        </View>
+        </Animated.View>
       )}
     </View>
   );

@@ -1,9 +1,10 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Button, Card, Chip, Screen, TopBar } from '@/components/ui';
+import { PressableScale } from '@/components/ui/PressableScale';
 import { fmt, useI18n } from '@/i18n';
 import {
   nearestFreeBay,
@@ -229,7 +230,55 @@ export default function ParkingZone() {
       <AppText variant="tiny" weight="regular" tone="secondary">
         {t.parking.zone.sensorNote}
       </AppText>
+
+      <Card style={styles.locationCard}>
+        <View style={styles.between}>
+          <AppText variant="bodyStrong" weight="bold">
+            {t.parking.zone.locationTitle}
+          </AppText>
+          <PressableScale
+            accessibilityRole="button"
+            onPress={() =>
+              Linking.openURL(
+                `https://maps.google.com/?q=${encodeURIComponent(zone.name.en + ', Al Yamamah University, Riyadh')}`,
+              ).catch(() => {})
+            }
+            style={[styles.dirBtn, { backgroundColor: colors.brandPrimary }]}
+          >
+            <AppText variant="caption" weight="semibold" tone="onBrand">
+              📍 {t.parking.zone.directions}
+            </AppText>
+          </PressableScale>
+        </View>
+        <View style={styles.row}>
+          <Icon name="pin" size={14} color={colors.textSecondary} />
+          <AppText variant="bodySmall" tone="secondary">
+            {zone.near[language]}
+          </AppText>
+        </View>
+        <AppText variant="caption" tone="secondary">
+          {zone.hint[language]}
+        </AppText>
+        <View style={[styles.divider, { backgroundColor: colors.borderDefault }]} />
+        <InfoRow label={t.parking.zone.hours} value={t.parking.zone.hoursValue} />
+        <InfoRow label={t.parking.zone.surface} value={t.parking.zone.surfaceValue} />
+        <InfoRow label={t.parking.zone.lighting} value={t.parking.zone.lightingValue} />
+        <InfoRow label={t.parking.zone.cctv} value={t.parking.zone.cctvValue} />
+      </Card>
     </Screen>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.infoRow}>
+      <AppText variant="caption" weight="semibold" style={styles.infoLabel}>
+        {label}
+      </AppText>
+      <AppText variant="caption" tone="secondary" style={styles.flex}>
+        {value}
+      </AppText>
+    </View>
   );
 }
 
@@ -297,4 +346,9 @@ const styles = StyleSheet.create({
     borderRadius: 14,
   },
   infoDot: { width: 14, height: 14, borderRadius: 7 },
+  locationCard: { gap: 8, borderRadius: 18, marginTop: 8 },
+  dirBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
+  divider: { height: 1, marginVertical: 4 },
+  infoRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  infoLabel: { width: 80 },
 });

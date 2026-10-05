@@ -33,26 +33,24 @@ export type Vehicle = {
 // Each route is a loop: the vehicle drives from point 0 → 1 → 2 → … → last → 0 → …
 // Coordinates traced from OpenStreetMap roads on the campus and the public road to SABB.
 
-/** Golf cart route 1: loops around the main campus ring road (clockwise). */
+/** Golf cart route 1: Main Building ↔ Tuwaiq Building (northern path). */
 const CART_ROUTE_1: LngLat[] = [
-  [46.59180, 24.86330], // south-west corner
-  [46.59220, 24.86270], // south side
-  [46.59310, 24.86260], // south-east
-  [46.59420, 24.86310], // east gate area
-  [46.59450, 24.86360], // north-east
-  [46.59400, 24.86410], // north side
-  [46.59310, 24.86400], // north-west
-  [46.59220, 24.86380], // west side
+  [46.59370, 24.86340], // Main Building
+  [46.59310, 24.86350], // west of Main Building
+  [46.59250, 24.86340], // mid-campus
+  [46.59200, 24.86310], // approaching Tuwaiq
+  [46.59150, 24.86280], // near Tuwaiq
+  [46.59108, 24.86226], // Tuwaiq Building
 ];
 
-/** Golf cart route 2: smaller loop around the western buildings. */
+/** Golf cart route 2: Main Building ↔ Tuwaiq Building (southern path). */
 const CART_ROUTE_2: LngLat[] = [
-  [46.59050, 24.86240], // far west
-  [46.59100, 24.86200], // south-west parking
-  [46.59170, 24.86220], // south
-  [46.59200, 24.86280], // center-south
-  [46.59180, 24.86330], // center
-  [46.59120, 24.86310], // west
+  [46.59370, 24.86340], // Main Building
+  [46.59320, 24.86300], // south of Main Building
+  [46.59260, 24.86270], // mid-campus south
+  [46.59200, 24.86240], // south approach
+  [46.59150, 24.86230], // near Tuwaiq
+  [46.59108, 24.86226], // Tuwaiq Building
 ];
 
 /** Shuttle bus route: campus main gate ↔ SAB Station via the public road. */
@@ -75,6 +73,7 @@ const ZONES: Zone[] = [
   { center: [46.59400, 24.86360], radius: 0.0012, en: 'Near Main Gate', ar: 'قرب البوابة الرئيسية' },
   { center: [46.59300, 24.86350], radius: 0.0010, en: 'Near Main Building', ar: 'قرب المبنى الرئيسي' },
   { center: [46.59180, 24.86300], radius: 0.0012, en: 'Near College of Engineering', ar: 'قرب كلية الهندسة' },
+  { center: [46.59108, 24.86226], radius: 0.0010, en: 'Near Tuwaiq Building', ar: 'قرب مبنى طويق' },
   { center: [46.59100, 24.86250], radius: 0.0012, en: 'Near Soccer Field', ar: 'قرب ملعب كرة القدم' },
   { center: [46.59250, 24.86400], radius: 0.0010, en: 'Near Library', ar: 'قرب المكتبة' },
   { center: CAMPUS_CENTER, radius: 0.003, en: 'On campus', ar: 'في الحرم الجامعي' },
@@ -273,12 +272,13 @@ export function startTracking(): Vehicle[] {
   if (!sims) {
     vehicles = makeVehicles();
     sims = [
-      initSim(CART_ROUTE_1, 0, CART_SPEED, false),
-      initSim(CART_ROUTE_2, 3, CART_SPEED, false),
+      initSim(CART_ROUTE_1, 0, CART_SPEED, true),  // ping-pong: Main ↔ Tuwaiq
+      initSim(CART_ROUTE_2, CART_ROUTE_2.length - 1, CART_SPEED, true),  // starts at Tuwaiq
       initSim(BUS_ROUTE, 0, BUS_SPEED, true),
       initSim(BUS_ROUTE, BUS_ROUTE.length - 1, BUS_SPEED, true),
     ];
-    // Start bus 2 heading toward campus
+    // Start cart 2 heading toward Main Building, bus 2 heading toward campus
+    sims[1].forward = false;
     sims[3].forward = false;
   }
   if (!timer) timer = setInterval(tick, TICK_MS);
@@ -307,8 +307,8 @@ export function getVehicles(): Vehicle[] {
 /** All vehicle route polylines, for drawing on the map. */
 export function getRoutes(): { id: string; type: VehicleType; color: string; path: LngLat[] }[] {
   return [
-    { id: 'cart-route-1', type: 'cart', color: '#2E7D33', path: [...CART_ROUTE_1, CART_ROUTE_1[0]] },
-    { id: 'cart-route-2', type: 'cart', color: '#1565C0', path: [...CART_ROUTE_2, CART_ROUTE_2[0]] },
+    { id: 'cart-route-1', type: 'cart', color: '#2E7D33', path: CART_ROUTE_1 },
+    { id: 'cart-route-2', type: 'cart', color: '#1565C0', path: CART_ROUTE_2 },
     { id: 'bus-route', type: 'bus', color: '#F68938', path: BUS_ROUTE },
   ];
 }
