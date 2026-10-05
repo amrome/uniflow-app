@@ -1,11 +1,12 @@
 import { useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppText, Button } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { CampusWebMap, type CampusWebMapRef } from '@/features/transport/CampusWebMap';
+import { VehicleSheet } from '@/features/transport/VehicleSheet';
 import {
   CAMPUS_BUILDINGS,
   CAMPUS_VIEW_CENTER,
@@ -13,6 +14,13 @@ import {
   SAB_STATION,
   type LngLat,
 } from '@/features/transport/campusMapData';
+import {
+  getRoutes,
+  onVehicleUpdate,
+  startTracking,
+  stopTracking,
+  type Vehicle,
+} from '@/features/transport/vehicleTracking';
 import { fmt, useI18n } from '@/i18n';
 import { fontFamily, typography, useTheme } from '@/theme';
 
@@ -52,6 +60,50 @@ export default function CampusMap3D() {
   const insets = useSafeAreaInsets();
   const mapRef = useRef<CampusWebMapRef>(null);
   const [query, setQuery] = useState('');
+  const [vehicles, setVehicles] = useState<Vehicle[]>(() => startTracking());
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const routesDrawn = useRef(false);
+
+  // Subscribe to position updates; stop on unmount.
+  useEffect(() => {
+    const unsub = onVehicleUpdate((updated) => {
+      setVehicles(updated);
+      mapRef.current?.updateVehicles(updated);
+
+      // Keep the selected vehicle's data fresh.
+      setSelectedVehicle((prev) => {
+        if (!prev) return null;
+        return updated.find((v) => v.id === prev.id) ?? null;
+      });
+    });
+
+    return () => {
+      unsub();
+      stopTracking();
+    };
+  }, []);
+
+  // Once the map is ready and we have vehicles, send initial data and draw routes.
+  useEffect(() => {
+    if (vehicles.length > 0 && mapRef.current) {
+      mapRef.current.updateVehicles(vehicles);
+      if (!routesDrawn.current) {
+        mapRef.current.drawRoutes(getRoutes());
+        routesDrawn.current = true;
+      }
+    }
+  }, [vehicles]);
+
+  const handleVehicleTap = useCallback(
+    (id: string) => {
+      const v = vehicles.find((veh) => veh.id === id);
+      if (v) {
+        setSelectedVehicle(v);
+        mapRef.current?.flyTo(v.position, 17);
+      }
+    },
+    [vehicles],
+  );
 
   const search = () => {
     const q = query.trim().toLowerCase();
@@ -63,26 +115,14 @@ export default function CampusMap3D() {
   const flyTo = (center: LngLat, zoom?: number) => mapRef.current?.flyTo(center, zoom);
   const zoomBy = (delta: number) => mapRef.current?.zoomBy(delta);
 
-  const vehicles = [
-    {
-      emoji: '🚌',
-      bg: '#F58A38',
-      name: t.transport.sabShuttle,
-      near: t.transport.sabShuttleNear,
-      eta: 4,
-    },
-    {
-      emoji: '🛺',
-      bg: '#2E7D33',
-      name: t.transport.golfCart2,
-      near: t.transport.golfCart2Near,
-      eta: 2,
-    },
-  ];
-
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      <CampusWebMap ref={mapRef} style={StyleSheet.absoluteFill} attributionBottom={250} />
+      <CampusWebMap
+        ref={mapRef}
+        style={StyleSheet.absoluteFill}
+        attributionBottom={selectedVehicle ? 320 : 250}
+        onVehicleTap={handleVehicleTap}
+      />
 
       <View style={[styles.topRow, { top: insets.top + 16 }]}>
         <Pressable
@@ -125,59 +165,63 @@ export default function CampusMap3D() {
         <MapButton label="🚇" a11y={t.transport.mapSabStation} onPress={() => flyTo(SAB_STATION)} />
       </View>
 
-      <View
-        style={[
-          styles.sheet,
-          { backgroundColor: colors.backgroundPrimary, paddingBottom: insets.bottom + 12 },
-        ]}
-      >
-        <View style={[styles.grabber, { backgroundColor: colors.borderDefault }]} />
-        <View style={styles.sheetHead}>
-          <AppText variant="bodyStrong" weight="bold" size={16}>
-            {t.transport.liveVehicles}
-          </AppText>
-          <View style={styles.trackedDot} />
-          <AppText variant="caption" tone="secondary">
-            {fmt(t.transport.tracked, { n: language === 'ar' ? '٢' : 2 })}
-          </AppText>
-        </View>
-        {vehicles.map((v) => (
-          <View
-            key={v.name}
-            style={[styles.vehicle, { backgroundColor: colors.backgroundSurface }]}
-          >
-            <View style={[styles.vehicleIcon, { backgroundColor: v.bg }]}>
-              <Text style={{ fontSize: 15 }}>{v.emoji}</Text>
-            </View>
-            <View style={styles.flex}>
-              <AppText variant="bodySmall" weight="semibold">
-                {v.name}
-              </AppText>
-              <AppText variant="caption" tone="secondary">
-                {v.near}
-              </AppText>
-            </View>
-            <View>
-              <AppText variant="label" weight="bold" tone="brand">
-                {fmt(t.transport.minutesAway, { n: v.eta })}
-              </AppText>
-              <AppText variant="caption" tone="secondary">
-                {t.transport.center}
-              </AppText>
-            </View>
+      {/* Vehicle detail popup — shown when a marker is tapped */}
+      {selectedVehicle ? (
+        <VehicleSheet vehicle={selectedVehicle} onClose={() => setSelectedVehicle(null)} />
+      ) : (
+        <View
+          style={[
+            styles.sheet,
+            { backgroundColor: colors.backgroundPrimary, paddingBottom: insets.bottom + 12 },
+          ]}
+        >
+          <View style={[styles.grabber, { backgroundColor: colors.borderDefault }]} />
+          <View style={styles.sheetHead}>
+            <AppText variant="bodyStrong" weight="bold" size={16}>
+              {t.transport.liveVehicles}
+            </AppText>
+            <View style={styles.trackedDot} />
+            <AppText variant="caption" tone="secondary">
+              {fmt(t.transport.tracked, { n: vehicles.length })}
+            </AppText>
           </View>
-        ))}
-        <Button
-          label={t.transport.notifyNear}
-          onPress={() =>
-            toast.show({
-              emoji: '🚌',
-              title: t.transport.notifyToastTitle,
-              body: t.transport.notifyToastBody,
-            })
-          }
-        />
-      </View>
+          {vehicles.map((v) => (
+            <Pressable
+              key={v.id}
+              accessibilityRole="button"
+              onPress={() => handleVehicleTap(v.id)}
+              style={[styles.vehicle, { backgroundColor: colors.backgroundSurface }]}
+            >
+              <View style={[styles.vehicleIcon, { backgroundColor: v.color }]}>
+                <Text style={{ fontSize: 15 }}>{v.type === 'bus' ? '🚌' : '🛺'}</Text>
+              </View>
+              <View style={styles.flex}>
+                <AppText variant="bodySmall" weight="semibold">
+                  {v.name[language]}
+                </AppText>
+                <AppText variant="caption" tone="secondary">
+                  {v.near[language]}
+                </AppText>
+              </View>
+              <View>
+                <AppText variant="label" weight="bold" tone="brand">
+                  {fmt(t.transport.minutesAway, { n: v.etaMin })}
+                </AppText>
+              </View>
+            </Pressable>
+          ))}
+          <Button
+            label={t.transport.notifyNear}
+            onPress={() =>
+              toast.show({
+                emoji: '🚌',
+                title: t.transport.notifyToastTitle,
+                body: t.transport.notifyToastBody,
+              })
+            }
+          />
+        </View>
+      )}
     </View>
   );
 }

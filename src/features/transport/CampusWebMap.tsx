@@ -1,6 +1,6 @@
-import { useImperativeHandle, useMemo, useRef, type Ref } from 'react';
+import { useCallback, useImperativeHandle, useMemo, useRef, type Ref } from 'react';
 import { Linking, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { WebView, type WebViewNavigation } from 'react-native-webview';
+import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import { useI18n } from '@/i18n';
 import { useTheme } from '@/theme';
@@ -18,12 +18,17 @@ import {
   type Place,
 } from './campusMapData';
 import { buildMapHtml, MAP_BASE_URL } from './mapHtml';
+import type { Vehicle } from './vehicleTracking';
 
 export type CampusWebMapRef = {
   /** Smoothly move the camera (keeps the tilt) to a point, optionally at a given zoom. */
   flyTo: (center: LngLat, zoom?: number) => void;
   /** Zoom in (positive) or out (negative) by a number of levels. */
   zoomBy: (delta: number) => void;
+  /** Send vehicle positions to the map. */
+  updateVehicles: (vehicles: Vehicle[]) => void;
+  /** Draw route polylines on the map (call once). */
+  drawRoutes: (routes: { id: string; type: string; color: string; path: LngLat[] }[]) => void;
 };
 
 type Props = {
@@ -34,6 +39,8 @@ type Props = {
   zoom?: number;
   /** Keeps the map credit visible above a bottom sheet. */
   attributionBottom?: number;
+  /** Called when a vehicle marker is tapped. */
+  onVehicleTap?: (id: string) => void;
   style?: StyleProp<ViewStyle>;
   ref?: Ref<CampusWebMapRef>;
 };
@@ -45,6 +52,7 @@ export function CampusWebMap({
   places = PLACES,
   zoom = CAMPUS_ZOOM,
   attributionBottom = 0,
+  onVehicleTap,
   style,
   ref,
 }: Props) {
@@ -61,8 +69,24 @@ export function CampusWebMap({
         ),
       zoomBy: (delta) =>
         webRef.current?.injectJavaScript(`window.__zoomBy && window.__zoomBy(${delta}); true;`),
+      updateVehicles: (vList) =>
+        webRef.current?.postMessage(JSON.stringify({ type: 'vehicles', vehicles: vList })),
+      drawRoutes: (routes) =>
+        webRef.current?.postMessage(JSON.stringify({ type: 'routes', routes })),
     }),
     [],
+  );
+
+  const onMessage = useCallback(
+    (e: WebViewMessageEvent) => {
+      try {
+        const msg = JSON.parse(e.nativeEvent.data);
+        if (msg.type === 'vehicleTap' && onVehicleTap) onVehicleTap(msg.id);
+      } catch {
+        // ignore
+      }
+    },
+    [onVehicleTap],
   );
 
   // Rebuilt (and the page reloaded) only when the theme or language changes.
@@ -119,6 +143,7 @@ export function CampusWebMap({
         source={{ html, baseUrl: MAP_BASE_URL }}
         originWhitelist={['*']}
         onShouldStartLoadWithRequest={onNavigate}
+        onMessage={onMessage}
         style={styles.web}
         scrollEnabled={false}
         bounces={false}

@@ -70,6 +70,11 @@ export function buildMapHtml(config: MapHtmlConfig): string {
   .pill { color: #fff; font-weight: 700; font-size: ${config.compact ? 9 : 11}px; line-height: 1.2; padding: 3px 8px; border-radius: 8px; max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .dot { width: 14px; height: 14px; border-radius: 50%; border: 3px solid #fff; margin-top: 3px; box-sizing: border-box; }
   #offline { display: none; position: absolute; inset: 0; align-items: center; justify-content: center; text-align: center; padding: 24px; color: #6B6560; font-size: 13px; }
+  .vehicle-marker { position: relative; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
+  .vehicle-ring { width: 34px; height: 34px; border-radius: 50%; border: 3px solid; background: #fff; display: flex; align-items: center; justify-content: center; z-index: 2; box-shadow: 0 2px 8px rgba(0,0,0,0.25); }
+  .vehicle-emoji { font-size: 16px; line-height: 1; }
+  .vehicle-pulse { position: absolute; width: 40px; height: 40px; border-radius: 50%; border: 2px solid; opacity: 0; z-index: 1; animation: vpulse 2s ease-out infinite; }
+  @keyframes vpulse { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(2.2); opacity: 0; } }
 </style>
 </head>
 <body>
@@ -193,6 +198,93 @@ export function buildMapHtml(config: MapHtmlConfig): string {
     el.appendChild(pill);
     el.appendChild(dot);
     new maplibregl.Marker({ element: el, anchor: 'bottom' }).setLngLat(p.lngLat).addTo(map);
+  });
+
+  // ── Vehicle markers ──────────────────────────────────────────────────────
+  var vehicleMarkers = {};
+
+  function upsertVehicle(v) {
+    var existing = vehicleMarkers[v.id];
+    if (existing) {
+      existing.marker.setLngLat(v.position);
+      existing.label.textContent = v.type === 'bus' ? '🚌' : '🛺';
+      existing.ring.style.borderColor = v.status === 'stopped' ? '#888' : v.color;
+      return;
+    }
+    var el = document.createElement('div');
+    el.className = 'vehicle-marker';
+    el.style.cursor = 'pointer';
+
+    var ring = document.createElement('div');
+    ring.className = 'vehicle-ring';
+    ring.style.borderColor = v.color;
+
+    var label = document.createElement('div');
+    label.className = 'vehicle-emoji';
+    label.textContent = v.type === 'bus' ? '🚌' : '🛺';
+    ring.appendChild(label);
+
+    var pulse = document.createElement('div');
+    pulse.className = 'vehicle-pulse';
+    pulse.style.borderColor = v.color;
+
+    el.appendChild(pulse);
+    el.appendChild(ring);
+
+    el.addEventListener('click', function () {
+      post({ type: 'vehicleTap', id: v.id });
+    });
+
+    var marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat(v.position)
+      .addTo(map);
+    vehicleMarkers[v.id] = { marker: marker, ring: ring, label: label };
+  }
+
+  // Draw route polylines once
+  function drawRoutes(routes) {
+    routes.forEach(function (r) {
+      if (map.getSource('route-' + r.id)) return;
+      map.addSource('route-' + r.id, {
+        type: 'geojson',
+        data: { type: 'Feature', geometry: { type: 'LineString', coordinates: r.path }, properties: {} }
+      });
+      map.addLayer({
+        id: 'route-' + r.id,
+        type: 'line',
+        source: 'route-' + r.id,
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': r.color,
+          'line-width': 3,
+          'line-opacity': 0.45,
+          'line-dasharray': [2, 3]
+        }
+      }, 'building-labels');
+    });
+  }
+
+  // Incoming messages from React Native.
+  window.addEventListener('message', function (e) {
+    try {
+      var msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (msg.type === 'vehicles') {
+        msg.vehicles.forEach(upsertVehicle);
+      } else if (msg.type === 'routes') {
+        drawRoutes(msg.routes);
+      }
+    } catch (_) {}
+  });
+  // Android WebView uses document.addEventListener
+  document.addEventListener('message', function (e) {
+    try {
+      var msg = typeof e.data === 'string' ? JSON.parse(e.data) : e.data;
+      if (msg.type === 'vehicles') {
+        msg.vehicles.forEach(upsertVehicle);
+      } else if (msg.type === 'routes') {
+        drawRoutes(msg.routes);
+      }
+    } catch (_) {}
   });
 
   // Commands from the app (see CampusWebMap.tsx).
