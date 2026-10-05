@@ -22,7 +22,7 @@ In **SQL Editor → New query**, run these three files **in order**, one at a ti
 | `03_seed.sql`      | The prototype's data: restaurants and menus, shuttle times, 15 instructors and timetables, clubs, events, parking zones, affairs services |
 
 Then run the patches in order: `04_reservation_number.sql`, `05_guest_affairs.sql`,
-`06_multiple_tickets.sql`, `08_restaurant_portal.sql` (`07_demo_all_portals.sql` is an optional demo helper).
+`06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql` (`07_demo_all_portals.sql` is an optional demo helper).
 
 Each is meant to run **once**. To start over: Project Settings → Database → reset, or delete and recreate the project.
 
@@ -100,4 +100,5 @@ npm test           # app tests (mock mode + a fake-Supabase live mode)
 - Database error messages (for example "You already have an active ticket") are in English.
 - Profile photos, the notifications screen and push notifications are still prototype-only (no storage or messaging yet).
 - Queue positions refresh every 15 seconds and on change; parking counts update live.
+- Free parking zones have one `parking_slots` row per bay (patch 09). Sensors set `is_occupied` with the service role key; the zone's free count follows automatically.
 - The restaurant board updates on every order change (realtime) and re-reads every 15 seconds in case a message is missed.

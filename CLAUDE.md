@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -17,7 +17,7 @@ The README says services are mocked; check `src/services` to see what is already
 - Roles: pre-approved `staff_emails` list. University admin gets `admin`, club admin is a `club_members` row, instructor is linked by `instructors.email`.
 - Stores (`createStore` in `services/store.ts`) are the cache. Services hydrate them after sign-in (`services/data.tsx`) and write through (optimistic, rollback via `reportError`). New data needs three things: SQL, a mapper in the service, a hydrate call.
 - Multi-step writes are SQL RPCs: `place_order`, `reserve_parking`, `book_queue_ticket`, `save_week`, `save_portal`, `save_shuttle_times`, `kitchen_orders`, `set_order_status`.
-- `npm run test:db` runs the SQL and RLS in PGlite (95 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
+- `npm run test:db` runs the SQL and RLS in PGlite (100 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
 - Not yet verified against a real Supabase project (needs the user's keys): auth emails, anonymous sign-in, realtime channels, PostgREST embeds (`clubs(slug)` etc.).
 
 ## Restaurant portal (iPad in each restaurant)
@@ -27,6 +27,13 @@ The README says services are mocked; check `src/services` to see what is already
 - Service `src/services/kitchen.ts`: `kitchenOrders` store, `hydrateKitchen` (RPC `kitchen_orders`), `setOrderStatus` (RPC `set_order_status`, which enforces the order of steps), `setSoldOut`, `updateRestaurant`. The restaurant and menu live in the food store, so students see changes at once.
 - Students: sold-out items stay listed but greyed with a "Sold out" chip (`MenuItem.soldOut`, from `is_available`); a closed restaurant (`Restaurant.closed`, from `is_open`) shows "Closed now" and no Add buttons. The order confirmation screen shows live progress (`orderStatuses` / `useOrderStatus` in `food.ts`).
 - Live updates: `data.tsx` listens to `orders`, `menu_items`, `restaurants` (realtime) and polls the board every 15 s. In mock mode an order placed on the same device reaches the board through `mockOrderListeners`.
+
+## Free parking zone maps
+
+- Tapping one of the four free zones on Parking opens `src/app/(tabs)/parking/[id].tsx`: a drawn plan of the lot (not a street map). Every bay is numbered and coloured by its sensor (green free, red taken, grey closed). Rows of 10, pairs of rows face a driving lane, bay 1 is by the entrance. Tap a bay for its label and row; "Show me" picks the closest free bay (`nearestFreeBay`). Pinch to zoom works on iOS only (ScrollView `maximumZoomScale`). The plan keeps `direction: 'ltr'` so it never mirrors in Arabic (web ignores this).
+- Data: patch `09_free_zone_slots.sql` gives each free zone one `parking_slots` row per bay (label `N-1`…). Sensors write `is_occupied`; a trigger keeps `parking_lots.capacity` / `free_count` in step, so the zone counts follow the bays. Demo a live change in the SQL Editor: `update parking_slots set is_occupied = not is_occupied where label = 'N-7';`
+- Service: `zoneBays` store / `useZoneBays` in `services/parking.ts`, loaded in `hydrateParking` and refreshed by the existing `parking_slots` realtime listener. Mock mode: `simulateSensors` swaps a car in and out every 5 s while the map is open (the free count stays the same).
+- Street-level directions (Google/Apple Maps) would need each lot's coordinates in `parking_lots.lat` / `lng` (columns exist, empty).
 
 ## Design source (Figma)
 

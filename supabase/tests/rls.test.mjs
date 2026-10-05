@@ -566,6 +566,41 @@ ok(
 await db.query(`update restaurants set is_open = true, prep_min = 12 where id = $1`, [kafton]);
 await db.query(`update menu_items set is_available = true where id = $1`, [kunafaId]);
 
+console.log('\n-- free zone bays (09_free_zone_slots.sql)');
+const zoneCounts = async (slug) =>
+  (await as(db, stu, `select total, free from parking_zones where slug='${slug}'`)).rows[0];
+const bays = async (slug) =>
+  (
+    await as(
+      db,
+      stu,
+      `select s.label, s.is_occupied from parking_slots s join parking_lots l on l.id = s.lot_id where l.slug = '${slug}'`,
+    )
+  ).rows;
+const northBays = await bays('north');
+ok(
+  'every free zone has one numbered bay per space, with the same free count as before',
+  northBays.length === 120 &&
+    northBays.filter((b) => !b.is_occupied).length === 12 &&
+    northBays.some((b) => b.label === 'N-120') &&
+    (await bays('east')).every((b) => b.is_occupied) &&
+    (await bays('west')).length === 80,
+  JSON.stringify(await zoneCounts('north')),
+);
+const freeBay = northBays.find((b) => !b.is_occupied).label;
+await db.query(`update parking_slots set is_occupied = true where label = $1`, [freeBay]);
+ok('a sensor taking a bay lowers the zone count', (await zoneCounts('north')).free === 11);
+await db.query(`update parking_slots set is_occupied = false where label = 'E-5'`);
+ok(
+  'a bay freeing up in a full zone shows 1 free',
+  JSON.stringify(await zoneCounts('east')) === '{"total":60,"free":1}',
+  JSON.stringify(await zoneCounts('east')),
+);
+await as(db, stu, `update parking_slots set is_occupied = false where label = '${freeBay}'`);
+ok("a student can't fake a sensor", (await zoneCounts('north')).free === 11);
+await db.exec(readFileSync(new URL('../09_free_zone_slots.sql', import.meta.url), 'utf8'));
+ok('patch 09 can run twice', (await bays('north')).length === 120);
+
 console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
 const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
 const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');

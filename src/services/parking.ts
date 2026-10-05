@@ -70,6 +70,81 @@ export const freeZonesStore = createStore<FreeZone[]>(live ? [] : mockFreeZones)
 export const usePaidZone = paidZoneStore.useValue;
 export const useFreeZones = freeZonesStore.useValue;
 
+export function useFreeZone(id: string | undefined): FreeZone | undefined {
+  return freeZonesStore.useValue().find((z) => z.id === id);
+}
+
+// ---- Bays: one per sensor in each free zone (N-1 … N-120) -----------------------------------
+
+export type Bay = {
+  label: string;
+  /** Bay number painted on the ground; bay 1 is next to the entrance. */
+  number: number;
+  occupied: boolean;
+  /** False when the bay is closed off (no sensor reading). */
+  active: boolean;
+};
+
+const bayNumber = (label: string) => Number(label.split('-').pop()) || 0;
+
+/** Mock bays: `free` of `total` free, spread around the lot like real arrivals. */
+function mockZoneBays(z: FreeZone): Bay[] {
+  const prefix = z.id[0].toUpperCase();
+  const order = Array.from({ length: z.total }, (_, i) => i + 1).sort(
+    (a, b) => ((a * 7919) % 104729) - ((b * 7919) % 104729) || a - b,
+  );
+  const free = new Set(order.slice(0, z.free));
+  return Array.from({ length: z.total }, (_, i) => ({
+    label: `${prefix}-${i + 1}`,
+    number: i + 1,
+    occupied: !free.has(i + 1),
+    active: true,
+  }));
+}
+
+/** Bays per free zone (zone slug → bays, sorted by number). Fed by the sensors. */
+export const zoneBays = createStore<Record<string, Bay[]>>(
+  live ? {} : Object.fromEntries(mockFreeZones.map((z) => [z.id, mockZoneBays(z)])),
+);
+
+const noBays: Bay[] = [];
+export function useZoneBays(zoneId: string | undefined): Bay[] {
+  return zoneBays.useValue()[zoneId ?? ''] ?? noBays;
+}
+
+/** The free bay closest to the entrance (lowest number), if any. */
+export function nearestFreeBay(bays: Bay[]): Bay | undefined {
+  return bays.find((b) => b.active && !b.occupied);
+}
+
+/**
+ * Mock mode only: while a zone map is open, a car leaves and another arrives every few seconds,
+ * the way the real sensors would report it (the zone's free count stays the same).
+ */
+export function simulateSensors(zoneId: string): () => void {
+  if (live) return () => {};
+  const timer = setInterval(() => {
+    const bays = zoneBays.get()[zoneId];
+    if (!bays) return;
+    const free = bays.filter((b) => !b.occupied);
+    const taken = bays.filter((b) => b.occupied);
+    if (!free.length || !taken.length) return;
+    const arrive = free[Math.floor(Math.random() * free.length)].number;
+    const leave = taken[Math.floor(Math.random() * taken.length)].number;
+    zoneBays.set((prev) => ({
+      ...prev,
+      [zoneId]: bays.map((b) =>
+        b.number === arrive
+          ? { ...b, occupied: true }
+          : b.number === leave
+            ? { ...b, occupied: false }
+            : b,
+      ),
+    }));
+  }, 5000);
+  return () => clearInterval(timer);
+}
+
 export type ZoneStatus = 'available' | 'almostFull' | 'full';
 
 export function zoneStatus(z: FreeZone): ZoneStatus {
@@ -218,6 +293,36 @@ export async function hydrateParking() {
       hint: bi(z.hint_en, z.hint_ar),
     }));
   freeZonesStore.set(free);
+  const slots = free.length
+    ? await fetchAll<{ lot_id: string; label: string; is_occupied: boolean; is_active: boolean }>(
+        (a, b) =>
+          client
+            .from('parking_slots')
+            .select('lot_id, label, is_occupied, is_active')
+            .in(
+              'lot_id',
+              free.map((z) => z.dbId),
+            )
+            .order('label')
+            .range(a, b),
+      )
+    : [];
+  zoneBays.set(
+    Object.fromEntries(
+      free.map((z) => [
+        z.id,
+        slots
+          .filter((s) => s.lot_id === z.dbId)
+          .map((s) => ({
+            label: s.label,
+            number: bayNumber(s.label),
+            occupied: s.is_occupied,
+            active: s.is_active,
+          }))
+          .sort((a, b) => a.number - b.number),
+      ]),
+    ),
+  );
   spotAlerts.replace(free.filter((z) => alerts.some((a) => a.lot_id === z.dbId)).map((z) => z.id));
   const current = mine[0];
   reservation.set(

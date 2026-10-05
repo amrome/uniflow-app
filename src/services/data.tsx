@@ -15,7 +15,14 @@ import {
   restaurantsStore,
 } from './food';
 import { hydrateKitchen, resetKitchen } from './kitchen';
-import { freeZonesStore, hydrateParking, paidZoneStore, reservation, spotAlerts } from './parking';
+import {
+  freeZonesStore,
+  hydrateParking,
+  paidZoneStore,
+  reservation,
+  spotAlerts,
+  zoneBays,
+} from './parking';
 import { getProfile, profileStore } from './profile';
 import {
   favoriteInstructors,
@@ -61,6 +68,7 @@ export function resetData() {
     golfCartsStore,
     paidZoneStore,
     freeZonesStore,
+    zoneBays,
     reservation,
     events,
     clubsStore,
