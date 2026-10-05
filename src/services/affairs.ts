@@ -13,6 +13,8 @@ export type AffairsService = {
   /** Database uuid (backend only); `id` is the slug. */
   dbId?: string;
   name: L;
+  /** The letter this service's tickets start with: R-101, T-101, S-101, I-101. */
+  letter: string;
   waiting: number;
   waitMin: number;
   /** The number the next person to book will get (backend only). */
@@ -23,22 +25,31 @@ const mockServices: AffairsService[] = [
   {
     id: 'registration',
     name: { en: 'Registration & Enrollment', ar: 'التسجيل والقبول' },
+    letter: 'R',
     waiting: 4,
     waitMin: 20,
   },
   {
     id: 'transcripts',
     name: { en: 'Transcripts & Letters', ar: 'السجلات الأكاديمية والخطابات' },
+    letter: 'T',
     waiting: 2,
     waitMin: 8,
   },
   {
     id: 'scholarships',
     name: { en: 'Scholarships & Financial Aid', ar: 'المنح والمساعدات المالية' },
+    letter: 'S',
     waiting: 7,
     waitMin: 35,
   },
-  { id: 'idcard', name: { en: 'Student ID Card', ar: 'البطاقة الجامعية' }, waiting: 1, waitMin: 5 },
+  {
+    id: 'idcard',
+    name: { en: 'Student ID Card', ar: 'البطاقة الجامعية' },
+    letter: 'I',
+    waiting: 1,
+    waitMin: 5,
+  },
 ];
 
 export const affairsServicesStore = createStore<AffairsService[]>(live ? [] : mockServices);
@@ -47,7 +58,12 @@ export const useAffairsServices = affairsServicesStore.useValue;
 /** Bookable later slots besides "Next available" (minutes since midnight). */
 export const laterSlots = [12 * 60, 13 * 60, 14 * 60 + 30];
 
+/** A student can hold this many live tickets at once (one per service). */
+export const MAX_TICKETS = 4;
+
 export type Ticket = {
+  /** Unique per ticket: the database uuid, or `mock-<service>` without a backend. */
+  id: string;
   /** Database uuid (backend only). */
   dbId?: string;
   serviceId: string;
@@ -67,14 +83,15 @@ const BASE = 101;
 
 /** What booking now would give you (shown before booking). */
 export function estimate(service: AffairsService, slot: number | 'next') {
-  const number = service.nextNumber ?? `A-${BASE + service.waiting}`;
+  const number = service.nextNumber ?? `${service.letter}-${BASE + service.waiting}`;
   if (slot === 'next') {
     return { number, ahead: service.waiting, waitMin: service.waitMin, at: nowMinutes() + 15 };
   }
   return { number, ahead: 0, waitMin: Math.max(0, slot - nowMinutes()), at: slot };
 }
 
-export const ticket = createStore<Ticket | null>(null);
+/** The student's live tickets (up to MAX_TICKETS), oldest first. */
+export const tickets = createStore<Ticket[]>([]);
 
 type ServiceRow = {
   id: string;
@@ -103,6 +120,7 @@ type TicketRow = {
 
 export function mapTicket(r: TicketRow): Ticket {
   return {
+    id: r.id,
     dbId: r.id,
     serviceId: r.service_slug ?? r.service_id,
     number: r.number,
@@ -117,12 +135,20 @@ export function mapTicket(r: TicketRow): Ticket {
   };
 }
 
-/** Reloads the student's live ticket (position, now serving…); null when they have none. */
-export async function refreshTicket(): Promise<Ticket | null> {
-  if (!live) return ticket.get();
-  const rows = await ok<TicketRow[]>(db().rpc('my_active_ticket'));
-  ticket.set(rows[0] ? mapTicket(rows[0]) : null);
-  return ticket.get();
+/** Reloads the student's live tickets (position, now serving…). */
+export async function refreshTickets(): Promise<Ticket[]> {
+  if (!live) return tickets.get();
+  let rows: TicketRow[];
+  try {
+    rows = await ok<TicketRow[]>(db().rpc('my_active_tickets'));
+  } catch (e) {
+    // Patch 06 not applied yet (or Supabase's schema cache not reloaded): fall back to the single
+    // live ticket so the screen keeps working. Run supabase/06_multiple_tickets.sql to get all four.
+    if (!/my_active_tickets/.test(String((e as { message?: string })?.message ?? e))) throw e;
+    rows = await ok<TicketRow[]>(db().rpc('my_active_ticket'));
+  }
+  tickets.set(rows.map(mapTicket));
+  return tickets.get();
 }
 
 /** Loads each service's live waiting count and the student's ticket. */
@@ -138,13 +164,21 @@ export async function hydrateAffairs() {
       name: bi(r.name_en, r.name_ar),
       waiting: r.waiting,
       waitMin: r.wait_min,
+      letter: r.next_number.split('-')[0] || '?', // the database owns the prefix (ticket_prefix)
       nextNumber: r.next_number,
     })),
   );
-  await refreshTicket();
+  await refreshTickets();
 }
 
 export async function book(service: AffairsService, slot: number | 'next'): Promise<Ticket> {
+  const mine = tickets.get();
+  if (mine.some((t) => t.serviceId === service.id)) {
+    throw new Error('You already have an active ticket for this service');
+  }
+  if (mine.length >= MAX_TICKETS) {
+    throw new Error(`You can have up to ${MAX_TICKETS} active tickets`);
+  }
   if (live) {
     if (!service.dbId) throw new Error('This service is not available');
     await ok(
@@ -153,7 +187,7 @@ export async function book(service: AffairsService, slot: number | 'next'): Prom
         p_slot: slot === 'next' ? null : todayAtMinutes(slot),
       }),
     );
-    const booked = await refreshTicket();
+    const booked = (await refreshTickets()).find((t) => t.serviceId === service.id);
     if (!booked) throw new Error('Could not book your ticket');
     hydrateAffairs().catch(() => {}); // the service's waiting count changed
     return booked;
@@ -163,6 +197,7 @@ export async function book(service: AffairsService, slot: number | 'next'): Prom
   // One person was served while you were booking (Figma: 7 → 6 ahead, ~35 → ~30 min).
   const ahead = Math.max(0, e.ahead - 1);
   const t: Ticket = {
+    id: `mock-${service.id}`,
     serviceId: service.id,
     number: e.number,
     ahead,
@@ -170,19 +205,21 @@ export async function book(service: AffairsService, slot: number | 'next'): Prom
     at: e.at,
     served,
     total: served + ahead,
-    nowServing: `A-${BASE}`,
+    nowServing: `${service.letter}-${BASE}`,
     alertNear: true,
     alertTurn: true,
   };
-  ticket.set(t);
+  tickets.set((all) => [...all, t]);
   return t;
 }
 
-/** Turns the "almost your turn" / "it's your turn" alerts on or off. */
-export function setTicketAlert(key: 'alertNear' | 'alertTurn', value: boolean) {
-  const current = ticket.get();
+/** Turns the "almost your turn" / "it's your turn" alerts on or off for one ticket. */
+export function setTicketAlert(id: string, key: 'alertNear' | 'alertTurn', value: boolean) {
+  const current = tickets.get().find((t) => t.id === id);
   if (!current) return;
-  ticket.set({ ...current, [key]: value });
+  const patch = (v: boolean) =>
+    tickets.set((all) => all.map((t) => (t.id === id ? { ...t, [key]: v } : t)));
+  patch(value);
   if (!live || !current.dbId) return;
   const column = key === 'alertNear' ? 'alert_near' : 'alert_turn';
   ok(
@@ -191,16 +228,16 @@ export function setTicketAlert(key: 'alertNear' | 'alertTurn', value: boolean) {
       .update({ [column]: value })
       .eq('id', current.dbId),
   ).catch((e) => {
-    ticket.set((t) => t && { ...t, [key]: !value });
+    patch(!value);
     reportError(e);
   });
 }
 
-export async function cancelTicket() {
-  const current = ticket.get();
+export async function cancelTicket(id: string) {
+  const current = tickets.get().find((t) => t.id === id);
   if (live && current?.dbId) {
     await ok(db().from('queue_tickets').update({ status: 'cancelled' }).eq('id', current.dbId));
     hydrateAffairs().catch(() => {});
   }
-  ticket.set(null);
+  tickets.set((all) => all.filter((t) => t.id !== id));
 }

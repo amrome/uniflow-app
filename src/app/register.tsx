@@ -5,6 +5,7 @@ import { Alert, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { Icon } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen } from '@/components/ui';
 import { useI18n } from '@/i18n';
+import { PHONE_MAX_LENGTH, sanitizePhone } from '@/lib/phone';
 import { errorMessage } from '@/services/errors';
 import { useSession } from '@/services/session';
 import { typography, useTheme } from '@/theme';
@@ -23,7 +24,8 @@ export default function GuestRegistration() {
   const [busy, setBusy] = useState(false);
   const [focused, setFocused] = useState<'contact' | 'name' | null>('contact');
 
-  const valid = name.trim().length > 1 && contact.trim().length > 3;
+  const contactValid = mode === 'phone' ? /^5\d{8}$/.test(contact) : contact.trim().length > 3;
+  const valid = name.trim().length > 1 && contactValid;
   const field = (key: 'contact' | 'name') => [
     styles.field,
     {
@@ -100,6 +102,7 @@ export default function GuestRegistration() {
 
       <AppText variant="bodySmall" weight="semibold" style={styles.sectionTop}>
         {t.guestReg.contactTitle}
+        <AppText style={{ color: colors.statusError }}> *</AppText>
       </AppText>
       <AppText variant="label" weight="regular" tone="secondary">
         {t.guestReg.contactHint}
@@ -138,7 +141,8 @@ export default function GuestRegistration() {
         )}
         <TextInput
           value={contact}
-          onChangeText={setContact}
+          onChangeText={(v) => setContact(mode === 'phone' ? sanitizePhone(v) : v)}
+          maxLength={mode === 'phone' ? PHONE_MAX_LENGTH : undefined}
           onFocus={() => setFocused('contact')}
           placeholder={mode === 'phone' ? t.guestReg.phonePlaceholder : t.guestReg.emailPlaceholder}
           placeholderTextColor={colors.inkOnInkMuted}
@@ -150,6 +154,7 @@ export default function GuestRegistration() {
 
       <AppText variant="bodySmall" weight="semibold" style={styles.sectionTop}>
         {t.guestReg.nameTitle}
+        <AppText style={{ color: colors.statusError }}> *</AppText>
       </AppText>
       <AppText variant="label" weight="regular" tone="secondary">
         {t.guestReg.nameHint}

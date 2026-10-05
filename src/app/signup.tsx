@@ -48,6 +48,7 @@ export default function SignUp() {
       </AppText>
       <TextField
         label={t.auth.fullName}
+        required
         placeholder={t.auth.namePlaceholder}
         value={name}
         onChangeText={setName}
@@ -55,6 +56,7 @@ export default function SignUp() {
       />
       <TextField
         label={t.common.email}
+        required
         placeholder={t.auth.emailPlaceholder}
         value={email}
         onChangeText={setEmail}
@@ -64,6 +66,7 @@ export default function SignUp() {
       />
       <TextField
         label={t.auth.password}
+        required
         placeholder={t.auth.passwordHint}
         value={password}
         onChangeText={setPassword}

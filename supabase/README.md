@@ -21,6 +21,9 @@ In **SQL Editor → New query**, run these three files **in order**, one at a ti
 | `02_schema_v2.sql` | Bilingual columns, slugs, approved-email roles, Student Affairs queue, parking and order functions                                        |
 | `03_seed.sql`      | The prototype's data: restaurants and menus, shuttle times, 15 instructors and timetables, clubs, events, parking zones, affairs services |
 
+Then run the patches in order: `04_reservation_number.sql`, `05_guest_affairs.sql`,
+`06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql` (`07_demo_all_portals.sql` is an optional demo helper).
+
 Each is meant to run **once**. To start over: Project Settings → Database → reset, or delete and recreate the project.
 
 ## 3. Connect the app
@@ -62,6 +65,20 @@ If that person already has an account, also run:
 Add real staff the same way: instructors need a matching `instructors.email`; club presidents use
 `insert into staff_emails (email, role, club_id) values ('x@yu.edu.sa', 'student', (select id from clubs where slug = 'gdg'));`
 
+### Restaurant accounts (the iPad in each restaurant)
+
+A restaurant account is the profile in `restaurants.manager_id`. Create the user (Authentication →
+Users, Auto Confirm), then link it:
+
+```sql
+update public.restaurants set manager_id = (select id from public.profiles where email = 'kafton@yu.edu.sa')
+where slug = 'kafton';
+```
+
+On the iPad: **Staff login** → type that email and password → **Restaurant** chip. It opens the live
+orders board (New → Preparing → Ready → Picked up) and Menu & settings (sold out, open/closed, prep
+time). The demo block at the end of `08_restaurant_portal.sql` does the same for one email.
+
 ## 5. Replacing the seed data
 
 Edit rows in **Table Editor** (restaurants, menu_items, shuttle_timetable, events…). Use these columns:
@@ -83,3 +100,5 @@ npm test           # app tests (mock mode + a fake-Supabase live mode)
 - Database error messages (for example "You already have an active ticket") are in English.
 - Profile photos, the notifications screen and push notifications are still prototype-only (no storage or messaging yet).
 - Queue positions refresh every 15 seconds and on change; parking counts update live.
+- Free parking zones have one `parking_slots` row per bay (patch 09). Sensors set `is_occupied` with the service role key; the zone's free count follows automatically.
+- The restaurant board updates on every order change (realtime) and re-reads every 15 seconds in case a message is missed.

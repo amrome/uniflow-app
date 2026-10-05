@@ -3,6 +3,7 @@ import { Modal, Pressable, StyleSheet, View } from 'react-native';
 import { useTheme } from '@/theme';
 
 import { AppText } from './AppText';
+import { DialogIn } from './Reveal';
 
 type Props = {
   visible: boolean;
@@ -42,40 +43,42 @@ export function ConfirmDialog({
         accessibilityRole="button"
         accessibilityLabel={keepLabel}
       >
-        <Pressable
-          style={[styles.dialog, { backgroundColor: colors.backgroundPrimary }]}
-          onPress={() => {}}
-        >
-          <View style={[styles.badge, { backgroundColor: 'rgba(214,69,69,0.12)' }]}>
-            <AppText size={30} tone="error">
-              {icon}
-            </AppText>
-          </View>
-          <AppText variant="headingLarge" align="center">
-            {title}
-          </AppText>
-          <AppText variant="bodySmall" tone="secondary" align="center" style={styles.body}>
-            {body}
-          </AppText>
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onKeep}
-              style={[styles.btn, { backgroundColor: colors.backgroundSurface }]}
-            >
-              <AppText variant="bodyStrong">{keepLabel}</AppText>
-            </Pressable>
-            <Pressable
-              accessibilityRole="button"
-              onPress={onConfirm}
-              style={[styles.btn, { backgroundColor: colors.statusError }]}
-            >
-              <AppText variant="bodyStrong" tone="onBrand">
-                {confirmLabel}
+        <DialogIn style={styles.dialogWrap}>
+          <Pressable
+            style={[styles.dialog, { backgroundColor: colors.backgroundPrimary }]}
+            onPress={() => {}}
+          >
+            <View style={[styles.badge, { backgroundColor: 'rgba(214,69,69,0.12)' }]}>
+              <AppText size={30} tone="error">
+                {icon}
               </AppText>
-            </Pressable>
-          </View>
-        </Pressable>
+            </View>
+            <AppText variant="headingLarge" align="center">
+              {title}
+            </AppText>
+            <AppText variant="bodySmall" tone="secondary" align="center" style={styles.body}>
+              {body}
+            </AppText>
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onKeep}
+                style={[styles.btn, { backgroundColor: colors.backgroundSurface }]}
+              >
+                <AppText variant="bodyStrong">{keepLabel}</AppText>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                onPress={onConfirm}
+                style={[styles.btn, { backgroundColor: colors.statusError }]}
+              >
+                <AppText variant="bodyStrong" tone="onBrand">
+                  {confirmLabel}
+                </AppText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </DialogIn>
       </Pressable>
     </Modal>
   );
@@ -89,6 +92,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 40,
   },
+  dialogWrap: { width: '100%', maxWidth: 360 },
   dialog: {
     width: '100%',
     maxWidth: 360,

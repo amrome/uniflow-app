@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import { Alert, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText, Button, Card, LangToggle, Screen, TopBar } from '@/components/ui';
+import { AnimatedItem } from '@/components/ui/Reveal';
 import { Divider, SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { useCart } from '@/services/cart';
@@ -68,7 +69,7 @@ export default function Cart() {
         {lines.map((l) => {
           const item = findItem(r, l.id);
           return (
-            <View key={l.id} style={styles.line}>
+            <AnimatedItem key={l.id} style={styles.line}>
               <View style={styles.lineRow}>
                 <AppText variant="label" weight="medium" style={styles.flex}>
                   {item?.name[language] ?? l.name}
@@ -81,7 +82,7 @@ export default function Cart() {
                 ×{l.qty}
               </AppText>
               <Divider />
-            </View>
+            </AnimatedItem>
           );
         })}
         <Pressable

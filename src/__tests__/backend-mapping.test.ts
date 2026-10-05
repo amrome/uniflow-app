@@ -18,6 +18,7 @@ test('a restaurant row becomes the shape the screens use', () => {
       rating: 4.8,
       rating_count: 1200,
       coming_soon: false,
+      is_open: true,
     },
     [
       {
@@ -58,8 +59,13 @@ test('a restaurant row becomes the shape the screens use', () => {
   expect(r.name.ar).toBe('كفتون');
   expect(r.cuisine.ar).toBe('Saudi'); // missing Arabic falls back to English
   expect(r.rating).toBe('4.8 (1.2k)');
-  expect(r.menu.map((m) => m.id)).toEqual(['k-shawarma']); // unavailable items hidden
-  expect(r.categories).toEqual(['wraps']);
+  // Sold-out items stay listed (greyed out) so students see the restaurant has them
+  expect(r.menu.map((m) => [m.id, !!m.soldOut])).toEqual([
+    ['k-shawarma', false],
+    ['k-gone', true],
+  ]);
+  expect(r.categories).toEqual(['wraps', 'drinks']);
+  expect(r.closed).toBeUndefined();
   expect(r.favoriteOrder).toEqual({ lines: [['k-shawarma', 2]], timesOrdered: 8 });
 });
 

@@ -80,6 +80,7 @@ export default function Home() {
       <View style={styles.grid}>
         <View style={styles.row}>
           <ServiceTile
+            index={0}
             icon="clock"
             tone="brand"
             title={t.home.schedules}
@@ -87,6 +88,7 @@ export default function Home() {
             onPress={() => router.push('/home/schedules')}
           />
           <ServiceTile
+            index={1}
             icon="briefcase"
             tone="ink"
             title={t.home.affairs}
@@ -96,6 +98,7 @@ export default function Home() {
         </View>
         <View style={styles.row}>
           <ServiceTile
+            index={2}
             icon="food"
             tone="ink"
             title={t.home.food}
@@ -103,6 +106,7 @@ export default function Home() {
             onPress={() => router.push('/food')}
           />
           <ServiceTile
+            index={3}
             icon="parking"
             tone="brand"
             title={t.home.parking}
@@ -112,6 +116,7 @@ export default function Home() {
         </View>
         <View style={styles.row}>
           <ServiceTile
+            index={4}
             icon="calendar"
             tone="brand"
             title={t.home.events}
@@ -119,6 +124,7 @@ export default function Home() {
             onPress={() => router.push('/home/events')}
           />
           <ServiceTile
+            index={5}
             icon="cart"
             tone="ink"
             title={t.home.transport}

@@ -12,6 +12,7 @@ import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { requestSlideFromLeft } from '@/components/ui/slideFromLeft';
 import { ToastProvider } from '@/components/ui/Toast';
 import { I18nProvider, useI18n } from '@/i18n';
 import { CartProvider } from '@/services/cart';
@@ -31,7 +32,10 @@ function ThemedStack() {
   // Signing out leaves the app screens (they become unreachable), so go to Login ourselves.
   const wasSignedIn = useRef(false);
   useEffect(() => {
-    if (wasSignedIn.current && !signedIn) router.replace('/login');
+    if (wasSignedIn.current && !signedIn) {
+      requestSlideFromLeft();
+      router.replace('/login');
+    }
     wasSignedIn.current = signedIn;
   }, [signedIn, router]);
 
@@ -48,12 +52,15 @@ function ThemedStack() {
         {/* Signed in: the login screens are removed from the history, so swiping back (or the Android
             back button) can never return to Login. Signed out: the app screens are not reachable. */}
         <Stack.Protected guard={!signedIn}>
-          <Stack.Screen name="login" />
+          {/* After logging out Login slides in from the left (see slideFromLeft.ts); no native animation. */}
+          <Stack.Screen name="login" options={{ animation: 'none' }} />
           <Stack.Screen name="register" />
           <Stack.Screen name="signup" />
         </Stack.Protected>
         <Stack.Protected guard={signedIn}>
-          <Stack.Screen name="(tabs)" options={{ gestureEnabled: false }} />
+          {/* No transition into or out of the tabs: getting back to a home page (the guest Home button,
+              Back from a guest service) appears directly, without sliding. */}
+          <Stack.Screen name="(tabs)" options={{ gestureEnabled: false, animation: 'none' }} />
           <Stack.Screen name="guest" options={{ gestureEnabled: false }} />
         </Stack.Protected>
       </Stack>

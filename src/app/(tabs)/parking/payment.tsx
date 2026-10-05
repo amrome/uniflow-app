@@ -1,15 +1,15 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
-import { AppText, Button, Card, Screen, TopBar } from '@/components/ui';
+import { AppText, Button, Card, FilterChip, Screen, TopBar } from '@/components/ui';
 import { Divider, SummaryRow } from '@/components/ui/SummaryRow';
 import { fmt, useI18n } from '@/i18n';
 import { live } from '@/services/backend';
-import { formatDate } from '@/services/clock';
+import { formatDate, formatTime } from '@/services/clock';
 import { reportError } from '@/services/errors';
-import { reserveSlot, usePaidZone, type PaymentMethod } from '@/services/parking';
+import { arrivalSlots, reserveSlot, usePaidZone, type PaymentMethod } from '@/services/parking';
 import { useTheme } from '@/theme';
 
 // Figma 06.1 · Parking Payment
@@ -19,6 +19,8 @@ export default function ParkingPayment() {
   const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod>('applePay');
   const [paying, setPaying] = useState(false);
+  const [slots] = useState(() => arrivalSlots());
+  const [arriveAt, setArriveAt] = useState(slots[0]);
   const paidZone = usePaidZone();
   const amount = fmt(t.food.price, { n: paidZone.price });
   const labels: Record<PaymentMethod, string> = {
@@ -30,7 +32,7 @@ export default function ParkingPayment() {
   const pay = async () => {
     setPaying(true);
     try {
-      await reserveSlot(method);
+      await reserveSlot(method, arriveAt);
       router.replace('/parking/reserved');
     } catch (e) {
       reportError(e);
@@ -58,9 +60,42 @@ export default function ParkingPayment() {
           muted={false}
         />
         <SummaryRow label={t.parking.valid} value={t.parking.validHours} muted={false} />
+        {arriveAt !== undefined && (
+          <SummaryRow
+            label={t.parking.arrivalLabel}
+            value={formatTime(arriveAt, language)}
+            muted={false}
+          />
+        )}
         <Divider />
         <SummaryRow label={t.parking.total} value={amount} muted={false} />
       </Card>
+
+      {slots.length > 0 && (
+        <>
+          <AppText variant="headingSmall" style={styles.sectionTop}>
+            {t.parking.arrival}
+          </AppText>
+          <AppText variant="caption" tone="secondary" style={styles.hint}>
+            {t.parking.arrivalHint}
+          </AppText>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.timesScroll}
+            contentContainerStyle={styles.times}
+          >
+            {slots.map((m) => (
+              <FilterChip
+                key={m}
+                label={formatTime(m, language)}
+                selected={arriveAt === m}
+                onPress={() => setArriveAt(m)}
+              />
+            ))}
+          </ScrollView>
+        </>
+      )}
 
       <AppText variant="headingSmall" style={styles.sectionTop}>
         {t.parking.method}
@@ -112,6 +147,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   summary: { gap: 10, borderRadius: 18 },
   sectionTop: { marginTop: 14 },
+  hint: { marginTop: -12 },
+  timesScroll: { marginHorizontal: -20, marginTop: -4 },
+  times: { gap: 8, paddingHorizontal: 20 },
   method: {
     flexDirection: 'row',
     alignItems: 'center',

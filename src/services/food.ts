@@ -24,6 +24,8 @@ export type MenuItem = {
   bg: string;
   category: MenuCategory;
   popular?: boolean;
+  /** Marked sold out by the restaurant: still listed, but can't be added. */
+  soldOut?: boolean;
 };
 
 export type Restaurant = {
@@ -36,6 +38,8 @@ export type Restaurant = {
   logo?: ImageSourcePropType;
   rating?: string;
   comingSoon?: boolean;
+  /** Closed for now by the restaurant (Restaurant portal); takes no orders. */
+  closed?: boolean;
   categories: MenuCategory[];
   menu: MenuItem[];
   /** "Your favorite order" — item ids with quantities. */
@@ -267,6 +271,7 @@ type RestaurantRow = {
   rating: number | null;
   rating_count: number;
   coming_soon: boolean;
+  is_open: boolean;
 };
 
 type MenuRow = {
@@ -306,19 +311,18 @@ export function mapRestaurant(
   items: MenuRow[],
   favorite?: FavoriteOrderRow,
 ): Restaurant {
-  const menu: MenuItem[] = items
-    .filter((m) => m.is_available)
-    .map((m) => ({
-      id: m.slug ?? m.id,
-      dbId: m.id,
-      name: bi(m.name_en, m.name_ar),
-      desc: bi(m.description_en, m.description_ar),
-      price: Number(m.price),
-      emoji: m.emoji ?? '🍽️',
-      bg: m.bg ?? '#F2F2F2',
-      category: (m.category ?? 'wraps') as MenuCategory,
-      popular: m.popular || undefined,
-    }));
+  const menu: MenuItem[] = items.map((m) => ({
+    id: m.slug ?? m.id,
+    dbId: m.id,
+    name: bi(m.name_en, m.name_ar),
+    desc: bi(m.description_en, m.description_ar),
+    price: Number(m.price),
+    emoji: m.emoji ?? '🍽️',
+    bg: m.bg ?? '#F2F2F2',
+    category: (m.category ?? 'wraps') as MenuCategory,
+    popular: m.popular || undefined,
+    soldOut: !m.is_available || undefined,
+  }));
   const lines: [string, number][] = (favorite?.lines ?? []).flatMap((l) => {
     const item = menu.find((m) => m.dbId === l.menu_item_id);
     return item ? [[item.id, l.qty] as [string, number]] : [];
@@ -335,6 +339,7 @@ export function mapRestaurant(
       ? `${Number(r.rating).toFixed(1)} (${compactCount(r.rating_count)})`
       : undefined,
     comingSoon: r.coming_soon || undefined,
+    closed: !r.is_open || undefined,
     categories: [...new Set(menu.map((m) => m.category))],
     menu,
     favoriteOrder: lines.length ? { lines, timesOrdered: favorite?.times_ordered ?? 1 } : undefined,
@@ -390,8 +395,13 @@ export function favoriteLines(r: Restaurant): CartLine[] {
   });
 }
 
+export type OrderStatus = 'pending' | 'preparing' | 'ready' | 'completed' | 'cancelled';
+
 export type PlacedOrder = {
+  /** Order number shown to people (UF-10432). */
   id: string;
+  /** Database uuid (backend only). */
+  dbId?: string;
   restaurantId: string;
   items: number;
   total: number;
@@ -400,6 +410,33 @@ export type PlacedOrder = {
 
 let orderSeq = 10432;
 const orders: PlacedOrder[] = [];
+
+/** Where each of the student's orders is in the kitchen, by order number (kept live). */
+export const orderStatuses = createStore<Record<string, OrderStatus>>({});
+
+export function useOrderStatus(orderNumber: string | undefined): OrderStatus {
+  return orderStatuses.useValue()[orderNumber ?? ''] ?? 'pending';
+}
+
+/**
+ * Mock mode only: the Restaurant portal on the same device hears about new orders here, so the
+ * demo works without a backend. Live mode gets them from the database instead.
+ */
+export const mockOrderListeners = new Set<(order: PlacedOrder, lines: CartLine[]) => void>();
+
+/** Re-reads the status of today's orders by this user (the kitchen changed one). */
+export async function refreshMyOrders() {
+  if (!live) return;
+  const since = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const rows = await ok<{ order_number: string; status: OrderStatus }[]>(
+    db()
+      .from('orders')
+      .select('order_number, status')
+      .eq('user_id', requireUserId())
+      .gte('created_at', since),
+  );
+  orderStatuses.set(Object.fromEntries(rows.map((r) => [r.order_number, r.status])));
+}
 
 export type PlaceOrderInput = Omit<PlacedOrder, 'id'> & {
   /** Cart contents (needed to save the order in the backend). */
@@ -419,6 +456,8 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
       id: `UF-${orderSeq++}`,
     };
     orders.unshift(order);
+    orderStatuses.set((prev) => ({ ...prev, [order.id]: 'pending' }));
+    mockOrderListeners.forEach((l) => l(order, input.lines ?? []));
     return order;
   }
   // One call saves the order and its items; the database prices them from the menu.
@@ -428,7 +467,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
     menu_item_id: findItem(restaurant, l.id)?.dbId,
     quantity: l.qty,
   }));
-  const row = await ok<{ order_number: string; total: number; pickup_time: string }>(
+  const row = await ok<{ id: string; order_number: string; total: number; pickup_time: string }>(
     db().rpc('place_order', {
       p_restaurant: restaurant.dbId,
       p_items: items,
@@ -439,12 +478,14 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder> {
   );
   const order: PlacedOrder = {
     id: row.order_number,
+    dbId: row.id,
     restaurantId: input.restaurantId,
     items: input.items,
     total: Number(row.total),
     readyAt: minutesOfDay(row.pickup_time),
   };
   orders.unshift(order);
+  orderStatuses.set((prev) => ({ ...prev, [order.id]: 'pending' }));
   pastOrders.set((n) => n + 1);
   return order;
 }

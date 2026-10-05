@@ -41,6 +41,12 @@ function daysFromToday(d: Date) {
   return Math.round((target.getTime() - today.getTime()) / DAY);
 }
 
+function startOfToday() {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 // Figma 13.3 · Club Event Editor and 13.6 · University Event Editor
 export default function EventEditor() {
   const params = useLocalSearchParams<{ id?: string; kind?: EventKind }>();
@@ -73,6 +79,10 @@ export default function EventEditor() {
   const [about, setAbout] = useState(existing?.about[language] ?? '');
   const [needsReg, setNeedsReg] = useState(!!existing?.registrationUrl);
   const [link, setLink] = useState(existing?.registrationUrl ?? '');
+
+  // An event can't be on a day that has already passed (also catches old events opened for editing).
+  const today = startOfToday();
+  const datePast = dateSet && daysFromToday(date) < 0;
 
   const build = (draft: boolean): CampusEvent => {
     const loc = (v: string, prev?: { en: string; ar: string }) => ({
@@ -132,13 +142,13 @@ export default function EventEditor() {
         <View style={styles.footer}>
           <Button
             label={t.staffPortal.publish}
-            disabled={!title.trim() || !dateSet || saving}
+            disabled={!title.trim() || !dateSet || datePast || saving}
             onPress={() => save(false)}
           />
           <Button
             label={t.staffPortal.saveDraft}
             variant="secondary"
-            disabled={!title.trim() || saving}
+            disabled={!title.trim() || datePast || saving}
             onPress={() => save(true)}
           />
         </View>
@@ -170,11 +180,13 @@ export default function EventEditor() {
         </AppText>
       </View>
 
-      <TextField label={t.staffPortal.eventTitle} value={title} onChangeText={setTitle} />
+      <TextField label={t.staffPortal.eventTitle} required value={title} onChangeText={setTitle} />
       <View style={styles.row}>
         <PickerField
           label={t.staffPortal.date}
+          required
           mode="date"
+          minimumDate={today}
           value={date}
           display={dateSet ? formatDate(date, language) : t.staffPortal.dateNotSet}
           onChange={(d) => {
@@ -186,6 +198,7 @@ export default function EventEditor() {
           <View style={styles.row}>
             <PickerField
               label={t.staffPortal.time}
+              required
               mode="time"
               value={hhmmToDate(start)}
               display={clock(start, language)}
@@ -201,7 +214,12 @@ export default function EventEditor() {
           </View>
         </View>
       </View>
-      <TextField label={t.staffPortal.venue} value={venue} onChangeText={setVenue} />
+      {datePast && (
+        <AppText variant="caption" style={{ color: colors.statusError }}>
+          {t.staffPortal.datePast}
+        </AppText>
+      )}
+      <TextField label={t.staffPortal.venue} required value={venue} onChangeText={setVenue} />
       <TextField
         label={t.staffPortal.description}
         value={about}

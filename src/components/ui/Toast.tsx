@@ -10,13 +10,14 @@ import {
   type ReactNode,
 } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
+import Animated from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useI18n } from '@/i18n';
 import { gradients } from '@/theme';
 
 import { AppText } from './AppText';
+import { toastEntering, toastExiting } from './Reveal';
 
 type ToastInput = { emoji: string; title: string; body: string };
 type ToastContextValue = { show: (toast: ToastInput) => void };
@@ -47,8 +48,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {toast && (
         <Animated.View
           key={toast.key}
-          entering={FadeInUp}
-          exiting={FadeOutUp}
+          entering={toastEntering}
+          exiting={toastExiting}
           style={[styles.wrap, { top: insets.top + 4 }]}
           pointerEvents="box-none"
         >

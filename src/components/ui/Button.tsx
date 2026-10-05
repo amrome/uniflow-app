@@ -1,10 +1,11 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { Icon, type IconName } from '@/components/icons';
 import { radius, shadows, useTheme } from '@/theme';
 
 import { AppText } from './AppText';
+import { PressableScale } from './PressableScale';
 
 type Variant = 'primary' | 'secondary' | 'ink' | 'danger' | 'ghost';
 
@@ -42,18 +43,18 @@ export function Button({
     ghost: { bg: 'transparent', fg: colors.textPrimary, border: colors.borderDefault },
   }[variant];
   return (
-    <Pressable
+    <PressableScale
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled }}
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
+      style={[
         styles.base,
         {
           backgroundColor: look.bg,
           borderColor: look.border,
-          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          opacity: disabled ? 0.5 : 1,
           boxShadow: variant === 'primary' && !disabled ? shadows.brandButton : undefined,
           justifyContent: trailing ? 'space-between' : 'center',
         },
@@ -67,7 +68,7 @@ export function Button({
         </AppText>
       </View>
       {trailing}
-    </Pressable>
+    </PressableScale>
   );
 }
 

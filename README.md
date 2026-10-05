@@ -30,12 +30,14 @@ internet connection (it loads MapLibre from a CDN and the tiles from
 
 ## Scripts
 
-| Command             | What it does        |
-| ------------------- | ------------------- |
-| `npm run typecheck` | TypeScript, no emit |
-| `npm run lint`      | ESLint              |
-| `npm run format`    | Prettier            |
-| `npm test`          | Jest                |
+| Command                | What it does                              |
+| ---------------------- | ----------------------------------------- |
+| `npm run start:tunnel` | Same as start, reachable from any network |
+| `npm run typecheck`    | TypeScript, no emit                       |
+| `npm run lint`         | ESLint                                    |
+| `npm run format`       | Prettier                                  |
+| `npm test`             | Jest                                      |
+| `npm run test:db`      | SQL + RLS in PGlite                       |
 
 ## Structure
 
@@ -45,7 +47,8 @@ src/components  shared UI (src/components/ui)
 src/features    feature-specific components and logic
 src/theme       design tokens from Figma, light + dark
 src/i18n        English + Arabic strings, RTL handling
-src/services    data access (mocked now, backend later)
+src/services    data access (Supabase when .env keys are set, mocks otherwise)
+supabase        SQL schema, seed, RPCs and tests (see supabase/README)
 src/mocks       mock data
 ```
 

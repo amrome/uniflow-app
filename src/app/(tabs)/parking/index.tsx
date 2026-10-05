@@ -137,9 +137,14 @@ function ZoneCard({ zone }: { zone: FreeZone }) {
     full: colors.statusError,
   }[status];
   const alertOn = alerts.includes(zone.id);
+  const router = useRouter();
 
   return (
-    <Card style={styles.zone}>
+    <Card
+      style={styles.zone}
+      accessibilityLabel={fmt(t.parking.zone.viewMap, { zone: zone.name[language] })}
+      onPress={() => router.push({ pathname: '/parking/[id]', params: { id: zone.id } })}
+    >
       <View style={styles.between}>
         <View style={styles.flex}>
           <AppText variant="bodySmall" weight="semibold">
@@ -188,9 +193,12 @@ function ZoneCard({ zone }: { zone: FreeZone }) {
             {zone.hint[language]}
           </AppText>
         </View>
-        <AppText variant="caption" weight="semibold">
-          {fmt(t.parking.freeOf, { free: zone.free, total: zone.total })}
-        </AppText>
+        <View style={styles.row}>
+          <AppText variant="caption" weight="semibold">
+            {fmt(t.parking.freeOf, { free: zone.free, total: zone.total })}
+          </AppText>
+          <Icon name="chevronRight" flipRTL size={14} color={colors.textSecondary} />
+        </View>
       </View>
     </Card>
   );

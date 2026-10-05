@@ -158,11 +158,13 @@ function SlotEditor(props: {
       >
         <TextField
           label={t.schedules.slotTitle}
+          required
           value={s.title[language]}
           onChangeText={(v) => setText('title', v)}
         />
         <TextField
           label={t.schedules.slotRoom}
+          required
           value={s.room[language]}
           onChangeText={(v) => setText('room', v)}
         />
@@ -198,6 +200,7 @@ function SlotEditor(props: {
         <View style={styles.times}>
           <PickerField
             label={t.schedules.slotStart}
+            required
             mode="time"
             value={hhmmToDate(s.start)}
             display={clock(s.start, language, true)}
@@ -205,6 +208,7 @@ function SlotEditor(props: {
           />
           <PickerField
             label={t.schedules.slotEnd}
+            required
             mode="time"
             value={hhmmToDate(s.end)}
             display={clock(s.end, language, true)}

@@ -47,6 +47,7 @@ export default function Login() {
       </View>
       <TextField
         label={t.common.email}
+        required
         placeholder={t.auth.emailPlaceholder}
         value={email}
         onChangeText={setEmail}
@@ -56,6 +57,7 @@ export default function Login() {
       />
       <TextField
         label={t.auth.password}
+        required
         placeholder="••••••••••"
         value={password}
         onChangeText={setPassword}

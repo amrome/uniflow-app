@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText, Button, LangToggle, Screen, TextField, TopBar } from '@/components/ui';
 import { useToast } from '@/components/ui/Toast';
 import { useI18n } from '@/i18n';
+import { PHONE_MAX_LENGTH, PHONE_PLACEHOLDER, sanitizePhone } from '@/lib/phone';
 import { live } from '@/services/backend';
 import { reportError } from '@/services/errors';
 import { getProfile, updateProfile } from '@/services/profile';
@@ -25,7 +26,7 @@ export default function EditProfile() {
     getProfile()
       .then((p) => {
         setFullName(p.fullName);
-        setPhone(p.phone);
+        setPhone(sanitizePhone(p.phone.replace(/^\s*\+?966/, '')));
         setEmail(p.email);
         setStudentId(p.studentId);
       })
@@ -34,7 +35,11 @@ export default function EditProfile() {
 
   const onSave = async () => {
     try {
-      await updateProfile({ fullName: fullName.trim(), phone: phone.trim(), email: email.trim() });
+      await updateProfile({
+        fullName: fullName.trim(),
+        phone: phone ? `+966${phone}` : '',
+        email: email.trim(),
+      });
     } catch (e) {
       reportError(e);
       return;
@@ -76,6 +81,7 @@ export default function EditProfile() {
       </View>
       <TextField
         label={t.profile.fullName}
+        required
         value={fullName}
         onChangeText={setFullName}
         autoCapitalize="words"
@@ -83,7 +89,9 @@ export default function EditProfile() {
       <TextField
         label={t.common.phone}
         value={phone}
-        onChangeText={setPhone}
+        onChangeText={(v) => setPhone(sanitizePhone(v))}
+        maxLength={PHONE_MAX_LENGTH}
+        placeholder={PHONE_PLACEHOLDER}
         keyboardType="phone-pad"
       />
       <TextField

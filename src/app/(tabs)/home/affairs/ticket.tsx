@@ -1,11 +1,11 @@
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Switch, View } from 'react-native';
 
 import { Icon } from '@/components/icons';
 import { AppText, Button, ConfirmDialog, Screen, TopBar } from '@/components/ui';
 import { fmt, useI18n } from '@/i18n';
-import { cancelTicket, setTicketAlert, ticket, useAffairsServices } from '@/services/affairs';
+import { cancelTicket, setTicketAlert, tickets, useAffairsServices } from '@/services/affairs';
 import { formatTime } from '@/services/clock';
 import { reportError } from '@/services/errors';
 import { useTheme } from '@/theme';
@@ -15,7 +15,9 @@ export default function YourTicket() {
   const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
-  const tk = ticket.useValue();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const all = tickets.useValue();
+  const tk = all.find((x) => x.id === id) ?? (id ? undefined : all[0]);
   const affairsServices = useAffairsServices();
   const [confirming, setConfirming] = useState(false);
   if (!tk) return null;
@@ -88,13 +90,13 @@ export default function YourTicket() {
           title={t.affairs.alertNear}
           sub={t.affairs.alertNearSub}
           value={tk.alertNear}
-          onChange={(v) => setTicketAlert('alertNear', v)}
+          onChange={(v) => setTicketAlert(tk.id, 'alertNear', v)}
         />
         <AlertRow
           title={t.affairs.alertTurn}
           sub={t.affairs.alertTurnSub}
           value={tk.alertTurn}
-          onChange={(v) => setTicketAlert('alertTurn', v)}
+          onChange={(v) => setTicketAlert(tk.id, 'alertTurn', v)}
         />
       </View>
 
@@ -108,7 +110,7 @@ export default function YourTicket() {
         onConfirm={() => {
           setConfirming(false);
           router.back();
-          cancelTicket().catch(reportError);
+          cancelTicket(tk.id).catch(reportError);
         }}
       />
     </Screen>

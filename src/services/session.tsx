@@ -17,7 +17,7 @@ import { authUserId, db, live, ok } from './backend';
 // Who is using the app. Staff roles come from the Staff Login screen (13 · Staff Login). With a
 // backend the role is decided by the database (profiles.role + the pre-approved staff_emails
 // list); without one it is detected from the email, as in the prototype.
-export type Role = 'student' | 'guest' | 'instructor' | 'clubAdmin' | 'uniAdmin';
+export type Role = 'student' | 'guest' | 'instructor' | 'clubAdmin' | 'uniAdmin' | 'restaurant';
 export type StaffRole = Exclude<Role, 'student' | 'guest'>;
 
 export type Session = {
@@ -30,6 +30,8 @@ export type Session = {
   instructorId?: string;
   /** Slug of the club this account administers (club admins). */
   clubId?: string;
+  /** Slug of the restaurant this account runs (the restaurant's iPad). */
+  restaurantId?: string;
 };
 
 type SessionContextValue = {
@@ -46,9 +48,13 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null);
 
-/** Mock role detection: club/president → club admin, staff/admin → university, else instructor. */
+/**
+ * Mock role detection: restaurant/kitchen → restaurant, club/president → club admin,
+ * staff/admin → university, else instructor.
+ */
 export function detectStaffRole(email: string): StaffRole {
   const e = email.toLowerCase();
+  if (e.includes('restaurant') || e.includes('kitchen') || e.includes('kafton')) return 'restaurant';
   if (e.includes('president') || e.includes('club')) return 'clubAdmin';
   if (e.includes('admin') || e.includes('staff') || e.includes('affairs')) return 'uniAdmin';
   return 'instructor';
@@ -59,15 +65,29 @@ export const staffHome = {
   instructor: '/staff/instructor',
   clubAdmin: '/staff/club',
   uniAdmin: '/staff/admin',
+  restaurant: '/staff/restaurant',
 } as const;
 
 export const staffDemoEmails = {
   instructor: 's.alotaibi@yu.edu.sa',
   clubAdmin: 'gdg.president@yu.edu.sa',
   uniAdmin: 'student.affairs@yu.edu.sa',
+  restaurant: 'kafton.restaurant@yu.edu.sa',
 } as const;
 
 const STAFF_MODE_KEY = 'uniflow.staffMode';
+
+// Demo switch (see "Demo mode" in CLAUDE.md): EXPO_PUBLIC_SKIP_AUTH=1 opens the app straight on the
+// student Home. With a backend it signs in the demo account EXPO_PUBLIC_DEMO_EMAIL / _PASSWORD so
+// writes (orders, reservations) still belong to a real user.
+const SKIP_AUTH = process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
+const DEMO_EMAIL = process.env.EXPO_PUBLIC_DEMO_EMAIL ?? '';
+const DEMO_PASSWORD = process.env.EXPO_PUBLIC_DEMO_PASSWORD ?? '';
+const mockStudent = (): Session => ({
+  role: 'student',
+  name: mockProfile.fullName,
+  email: mockProfile.email,
+});
 
 type ProfileRow = {
   role: string;
@@ -76,10 +96,17 @@ type ProfileRow = {
   phone: string | null;
 };
 
-/** Builds the app session for a signed-in user from the database. */
-async function loadSession(user: User, asStaff: boolean): Promise<Session> {
+const STAFF_ROLES: StaffRole[] = ['instructor', 'clubAdmin', 'uniAdmin', 'restaurant'];
+
+/**
+ * Builds the app session for a signed-in user from the database.
+ * One account can hold several roles (university admin, instructor, club admin, restaurant). The
+ * login screen decides which portal opens: the normal Login is always the student portal; the
+ * Staff login opens `wantRole` when the account has it, otherwise the account's first staff role.
+ */
+async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): Promise<Session> {
   const client = db();
-  const [profile, clubs, instructor] = await Promise.all([
+  const [profile, clubs, instructor, restaurants] = await Promise.all([
     ok<ProfileRow>(
       client.from('profiles').select('role, full_name, email, phone').eq('id', user.id).single(),
     ),
@@ -89,13 +116,21 @@ async function loadSession(user: User, asStaff: boolean): Promise<Session> {
     ok<{ slug: string } | null>(
       client.from('instructors').select('slug').eq('profile_id', user.id).maybeSingle(),
     ),
+    ok<{ slug: string }[] | null>(
+      client.from('restaurants').select('slug').eq('manager_id', user.id),
+    ),
   ]);
   const clubId = clubs[0]?.clubs?.slug ?? undefined;
+  const restaurantId = restaurants?.[0]?.slug ?? undefined;
+  const can: StaffRole[] = [];
+  if (profile.role === 'admin' || profile.role === 'affairs') can.push('uniAdmin');
+  if (profile.role === 'instructor' || instructor) can.push('instructor');
+  if (clubId) can.push('clubAdmin');
+  if (restaurantId) can.push('restaurant');
   let role: Role;
-  if (profile.role === 'admin' || profile.role === 'affairs') role = 'uniAdmin';
-  else if (profile.role === 'instructor') role = 'instructor';
-  else if (profile.role === 'guest') role = 'guest';
-  else role = asStaff && clubId ? 'clubAdmin' : 'student';
+  if (profile.role === 'guest') role = 'guest';
+  else if (!asStaff) role = 'student';
+  else role = wantRole && can.includes(wantRole) ? wantRole : (can[0] ?? 'student');
   return {
     role,
     name: profile.full_name || profile.email?.split('@')[0] || 'Guest',
@@ -104,11 +139,14 @@ async function loadSession(user: User, asStaff: boolean): Promise<Session> {
     userId: user.id,
     instructorId: instructor?.slug,
     clubId,
+    restaurantId,
   };
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<Session | null>(null);
+  const [session, setSessionState] = useState<Session | null>(() =>
+    SKIP_AUTH && !live ? mockStudent() : null,
+  );
   const [ready, setReady] = useState(!live);
 
   // The user id is stored *before* React re-renders, so effects further down the tree (the data
@@ -126,11 +164,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const { data } = await client.auth.getSession();
+        let restored: Session | null = null;
         if (data.session) {
-          const asStaff = (await AsyncStorage.getItem(STAFF_MODE_KEY)) === '1';
-          const restored = await loadSession(data.session.user, asStaff);
-          if (active) setSession(restored);
+          // STAFF_MODE_KEY holds the staff role chosen at Staff login ('1' from older versions).
+          const saved = await AsyncStorage.getItem(STAFF_MODE_KEY);
+          const savedRole = STAFF_ROLES.find((r) => r === saved);
+          restored = await loadSession(data.session.user, !!saved, savedRole);
+          if (restored.role === 'guest') {
+            // A guest visit is temporary: the next launch starts at Login, not in the old guest session.
+            restored = null;
+            await client.auth.signOut().catch(() => {});
+          }
         }
+        if (!restored && SKIP_AUTH && DEMO_EMAIL) {
+          const { data: signedIn, error } = await client.auth.signInWithPassword({
+            email: DEMO_EMAIL,
+            password: DEMO_PASSWORD,
+          });
+          if (!error && signedIn.user) restored = await loadSession(signedIn.user, false);
+        }
+        if (restored && active) setSession(restored);
       } catch {
         // offline or revoked: fall through to the login screen
       } finally {
@@ -221,6 +274,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           email,
           instructorId: resolved === 'instructor' ? 'sarah' : undefined,
           clubId: resolved === 'clubAdmin' ? 'gdg' : undefined,
+          restaurantId: resolved === 'restaurant' ? 'kafton' : undefined,
         };
         setSession(s);
         return s;
@@ -231,12 +285,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         password,
       });
       if (error) throw error;
-      const s = await loadSession(data.user, true);
+      const s = await loadSession(data.user, true, role);
       if (s.role === 'student' || s.role === 'guest') {
         await client.auth.signOut();
         throw new Error('This account does not have staff access');
       }
-      await AsyncStorage.setItem(STAFF_MODE_KEY, '1').catch(() => {});
+      await AsyncStorage.setItem(STAFF_MODE_KEY, s.role).catch(() => {});
       setSession(s);
       return s;
     },

@@ -22,6 +22,8 @@ export default function StaffLayout() {
         <Stack.Screen name="instructor" options={{ gestureEnabled: false }} />
         <Stack.Screen name="club" options={{ gestureEnabled: false }} />
         <Stack.Screen name="admin" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="restaurant" options={{ gestureEnabled: false }} />
+        <Stack.Screen name="restaurant-menu" />
         <Stack.Screen name="schedule" />
         <Stack.Screen name="event-editor" />
         <Stack.Screen name="shuttle-editor" />

@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { boot, as } from './lib.mjs';
 const db = await boot();
 let pass = 0,
@@ -232,10 +233,31 @@ ok(
   JSON.stringify(t1),
 );
 await fails(
-  'one active ticket per student',
-  as(db, stu, `select book_queue_ticket('${tr}')`),
+  'no second live ticket for the same service',
+  as(db, stu, `select book_queue_ticket('${reg}')`),
   'already have',
 );
+await as(db, stu, `select book_queue_ticket('${tr}')`);
+ok(
+  'a student can hold a ticket for each service (2 live)',
+  (await as(db, stu, 'select * from my_active_tickets()')).rows.length === 2,
+);
+await as(db, stu, `select book_queue_ticket('${await sid('scholarships')}')`);
+await as(db, stu, `select book_queue_ticket('${await sid('idcard')}')`);
+const mine = (await as(db, stu, 'select number from my_active_tickets()')).rows.map(
+  (r) => r.number[0],
+);
+ok('four live tickets, one letter per service (R,T,S,I)', mine.join('') === 'RTSI', mine.join(','));
+await db.query(`update public.affairs_services set is_active = true`);
+await db.query(
+  `insert into public.affairs_services (slug, name_en, name_ar, ticket_prefix, minutes_per_ticket, sort_order) values ('extra','Extra','إضافي','X',5,9)`,
+);
+await fails(
+  'a fifth live ticket is refused',
+  as(db, stu, `select book_queue_ticket('${await sid('extra')}')`),
+  'up to 4',
+);
+await db.query(`delete from public.affairs_services where slug = 'extra'`);
 await as(db, stu2, `select book_queue_ticket('${reg}')`);
 let t2 = (await as(db, stu2, 'select * from my_active_ticket()')).rows[0];
 ok(
@@ -250,11 +272,6 @@ ok(
   'appointment ticket: nobody ahead, wait ~90 min',
   t3.number === 'R-103' && t3.ahead === 0 && Math.abs(t3.wait_min - 90) <= 1,
   JSON.stringify(t3),
-);
-await fails(
-  'guest cannot book',
-  as(db, gst, `select book_queue_ticket('${reg}')`),
-  'students and staff',
 );
 await fails(
   'direct ticket insert rejected',
@@ -289,6 +306,9 @@ const st = (
   )
 ).rows[0];
 ok('service board: next number R-104', st.next_number === 'R-104', JSON.stringify(st));
+await as(db, gst, `select book_queue_ticket('${reg}')`);
+const tg = (await as(db, gst, 'select * from my_active_ticket()')).rows[0];
+ok('guest can book a Student Affairs ticket', tg && /^R-\d+$/.test(tg.number), JSON.stringify(tg));
 await as(db, other, `update queue_tickets set status='cancelled' where user_id='${other}'`);
 ok(
   'owner can cancel own waiting ticket',
@@ -467,6 +487,202 @@ await as(
 ok(
   'student follows an instructor',
   (await as(db, stu, 'select * from instructor_prefs')).rows.length === 1,
+);
+
+console.log('\n-- restaurant portal (08_restaurant_portal.sql)');
+const ipad = await mk('kafton.ipad@yu.edu.sa', 'Kafton iPad');
+await db.query(`update restaurants set manager_id = $1 where slug = 'kafton'`, [ipad]);
+const kOrder = (await as(db, stu2, `select * from place_order('${kafton}', '${items}'::jsonb)`))
+  .rows[0];
+const board = (await as(db, ipad, `select kitchen_orders('${kafton}') as j`)).rows[0].j;
+const kRow = board.find((o) => o.id === kOrder.id);
+ok(
+  "kitchen sees today's orders with items",
+  board.length === 3 &&
+    kRow?.customer_name === 'Second Student' &&
+    kRow.items.length === 2 &&
+    kRow.items.some((i) => i.name_en === 'Chicken Shawarma Wrap' && i.quantity === 2),
+  JSON.stringify(board.map((o) => [o.order_number, o.status, o.items.length])),
+);
+await fails(
+  "a student cannot open a restaurant's board",
+  as(db, stu, `select kitchen_orders('${kafton}')`),
+  'Not allowed',
+);
+await fails(
+  "a restaurant cannot open another restaurant's board",
+  as(db, ipad, `select kitchen_orders('${archi}')`),
+  'Not allowed',
+);
+const statusOf = async (id) =>
+  (await db.query('select status from orders where id=$1', [id])).rows[0].status;
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'preparing')`);
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'ready')`);
+ok('kitchen moves an order to ready', (await statusOf(kOrder.id)) === 'ready');
+ok(
+  'the student sees the order is ready',
+  (await as(db, stu2, `select status from orders where id='${kOrder.id}'`)).rows[0]?.status ===
+    'ready',
+);
+await fails(
+  'a ready order cannot be cancelled',
+  as(db, ipad, `select set_order_status('${kOrder.id}', 'cancelled')`),
+  'already ready',
+);
+await as(db, ipad, `select set_order_status('${kOrder.id}', 'completed')`);
+ok('kitchen marks it picked up', (await statusOf(kOrder.id)) === 'completed');
+await fails(
+  'a student cannot change order status',
+  as(db, stu2, `select set_order_status('${kOrder.id}', 'preparing')`),
+  'Not allowed',
+);
+await fails(
+  'a cancelled order stays cancelled',
+  as(db, ipad, `select set_order_status('${order.id}', 'preparing')`),
+  'already cancelled',
+);
+const kunafaId = (await db.query(`select id from menu_items where slug = 'k-kunafa'`)).rows[0].id;
+await as(db, ipad, `update menu_items set is_available = false where id = '${kunafaId}'`);
+await as(db, ipad, `update restaurants set is_open = false, prep_min = 20 where id = '${kafton}'`);
+const kNow = (await db.query('select is_open, prep_min from restaurants where id=$1', [kafton]))
+  .rows[0];
+const kunafa = (await db.query('select is_available from menu_items where id=$1', [kunafaId]))
+  .rows[0];
+ok(
+  'restaurant marks an item sold out, closes and sets prep time',
+  kunafa.is_available === false && kNow.is_open === false && kNow.prep_min === 20,
+);
+await fails(
+  'a closed restaurant takes no orders',
+  as(db, stu, `select * from place_order('${kafton}', '${items}'::jsonb)`),
+  'not taking orders',
+);
+await as(db, ipad, `update menu_items set is_available = false where restaurant_id = '${archi}'`);
+ok(
+  "a restaurant cannot edit another restaurant's menu",
+  (await db.query(`select count(*)::int as n from menu_items where restaurant_id=$1 and not is_available`, [archi]))
+    .rows[0].n === 0,
+);
+await db.query(`update restaurants set is_open = true, prep_min = 12 where id = $1`, [kafton]);
+await db.query(`update menu_items set is_available = true where id = $1`, [kunafaId]);
+
+console.log('\n-- free zone bays (09_free_zone_slots.sql)');
+const zoneCounts = async (slug) =>
+  (await as(db, stu, `select total, free from parking_zones where slug='${slug}'`)).rows[0];
+const bays = async (slug) =>
+  (
+    await as(
+      db,
+      stu,
+      `select s.label, s.is_occupied from parking_slots s join parking_lots l on l.id = s.lot_id where l.slug = '${slug}'`,
+    )
+  ).rows;
+const northBays = await bays('north');
+ok(
+  'every free zone has one numbered bay per space, with the same free count as before',
+  northBays.length === 120 &&
+    northBays.filter((b) => !b.is_occupied).length === 12 &&
+    northBays.some((b) => b.label === 'N-120') &&
+    (await bays('east')).every((b) => b.is_occupied) &&
+    (await bays('west')).length === 80,
+  JSON.stringify(await zoneCounts('north')),
+);
+const freeBay = northBays.find((b) => !b.is_occupied).label;
+await db.query(`update parking_slots set is_occupied = true where label = $1`, [freeBay]);
+ok('a sensor taking a bay lowers the zone count', (await zoneCounts('north')).free === 11);
+await db.query(`update parking_slots set is_occupied = false where label = 'E-5'`);
+ok(
+  'a bay freeing up in a full zone shows 1 free',
+  JSON.stringify(await zoneCounts('east')) === '{"total":60,"free":1}',
+  JSON.stringify(await zoneCounts('east')),
+);
+await as(db, stu, `update parking_slots set is_occupied = false where label = '${freeBay}'`);
+ok("a student can't fake a sensor", (await zoneCounts('north')).free === 11);
+await db.exec(readFileSync(new URL('../09_free_zone_slots.sql', import.meta.url), 'utf8'));
+ok('patch 09 can run twice', (await bays('north')).length === 120);
+
+console.log('\n-- parking: still coming? (10_parking_confirm.sql)');
+const freeBefore = await zoneFree();
+const later = (
+  await as(
+    db,
+    stu,
+    `select * from reserve_parking('${paid}', 'mada', least(now() + interval '1 hour', date_trunc('day', now() at time zone 'Asia/Riyadh') at time zone 'Asia/Riyadh' + interval '23 hours 59 minutes'))`,
+  )
+).rows[0];
+ok(
+  'a reservation keeps its arrival time',
+  later.arrive_at !== null && String(later.arrive_at) !== String(later.starts_at),
+);
+await fails(
+  'an arrival time tomorrow is rejected',
+  as(db, stu2, `select * from reserve_parking('${paid}', 'mada', now() + interval '2 days')`),
+  'today',
+);
+await fails(
+  "nobody can confirm someone else's reservation",
+  as(db, stu2, `select * from confirm_parking('${later.id}')`),
+  'no longer active',
+);
+await as(db, stu, `select * from confirm_parking('${later.id}')`);
+ok(
+  "'Yes, I'm coming' confirms it",
+  (await db.query('select confirmed_at from parking_reservations where id=$1', [later.id])).rows[0]
+    .confirmed_at !== null,
+);
+ok('the confirmed spot is still taken', (await zoneFree()) === freeBefore - 1);
+const cancelled = (await as(db, stu, `select * from cancel_parking('${later.id}')`)).rows[0];
+ok(
+  'cancelling refunds the full amount and frees the spot',
+  cancelled.status === 'cancelled' &&
+    Number(cancelled.refund_amount) === 80 &&
+    cancelled.refunded_at !== null &&
+    (await zoneFree()) === freeBefore,
+);
+await fails(
+  'a reservation can only be refunded once',
+  as(db, stu, `select * from cancel_parking('${later.id}')`),
+  'no longer active',
+);
+await db.query(
+  `update parking_reservations set arrive_at = now() - interval '1 hour' where id = $1`,
+  [res2.id],
+);
+const lateFree = await zoneFree();
+const late = (await as(db, stu2, `select * from cancel_parking('${res2.id}')`)).rows[0];
+ok(
+  'after the refund window it still cancels and frees the spot, without a refund (11)',
+  late.status === 'cancelled' &&
+    Number(late.refund_amount) === 0 &&
+    late.refunded_at === null &&
+    (await zoneFree()) === lateFree + 1,
+  JSON.stringify(late),
+);
+
+console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
+const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
+const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');
+await db.exec(helper);
+const allRole = (await db.query(`select role from profiles where id = '${all}'`)).rows[0].role;
+const allSarah = (await db.query(`select profile_id from instructors where slug = 'sarah'`))
+  .rows[0];
+const allClub = (
+  await db.query(
+    `select cm.role from club_members cm join clubs c on c.id = cm.club_id where c.slug = 'gdg' and cm.user_id = '${all}'`,
+  )
+).rows[0];
+ok(
+  'one account is university admin + Sarah + GDG admin',
+  allRole === 'admin' && allSarah.profile_id === all && allClub?.role === 'admin',
+  JSON.stringify({ allRole, allSarah, allClub }),
+);
+await db.exec(helper);
+ok('the helper can run twice', true);
+await db.exec(readFileSync(new URL('../08_restaurant_portal.sql', import.meta.url), 'utf8'));
+ok(
+  'the demo account is also the Kafton restaurant (08)',
+  (await db.query(`select manager_id from restaurants where slug = 'kafton'`)).rows[0]
+    .manager_id === all,
 );
 
 console.log(`\n${pass} passed, ${fail} failed`);
