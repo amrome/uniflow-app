@@ -648,10 +648,15 @@ await db.query(
   `update parking_reservations set arrive_at = now() - interval '1 hour' where id = $1`,
   [res2.id],
 );
-await fails(
-  'no refund later than 30 minutes after the arrival time',
-  as(db, stu2, `select * from cancel_parking('${res2.id}')`),
-  'too late',
+const lateFree = await zoneFree();
+const late = (await as(db, stu2, `select * from cancel_parking('${res2.id}')`)).rows[0];
+ok(
+  'after the refund window it still cancels and frees the spot, without a refund (11)',
+  late.status === 'cancelled' &&
+    Number(late.refund_amount) === 0 &&
+    late.refunded_at === null &&
+    (await zoneFree()) === lateFree + 1,
+  JSON.stringify(late),
 );
 
 console.log('\n-- one account for every portal (07_demo_all_portals.sql)');

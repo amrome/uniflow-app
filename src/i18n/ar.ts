@@ -318,6 +318,10 @@ export const ar: Translations = {
       cancelTitle: 'إلغاء هذا الحجز؟',
       cancelBody: 'ستسترد {amount} وسيصبح الموقف {slot} متاحًا لغيرك.',
       keep: 'إبقاء الحجز',
+      cancelNoRefund: 'إلغاء الحجز',
+      cancelLateBody:
+        'مضى أكثر من 30 دقيقة على وقت وصولك، لذا لا يوجد استرداد. سيصبح الموقف {slot} متاحًا لغيرك.',
+      noRefundBody: 'أصبح الموقف {slot} متاحًا للآخرين. لا يوجد استرداد لأن وقت الاسترداد انتهى.',
     },
     pay: 'ادفع {amount}',
     reservedTitle: 'تم حجز الموقف',

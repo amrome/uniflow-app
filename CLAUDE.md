@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -31,7 +31,7 @@ The README says services are mocked; check `src/services` to see what is already
 ## Paid parking: "Are you still coming?"
 
 - Checkout asks for an arrival time (half-hour chips from the next half hour to 11:30 PM). From 30 min before it (`CHECK_BEFORE_MIN`) the app asks "Are you still coming?": `ParkingCheck` (`features/parking/ParkingCheck.tsx`) is mounted in `(tabs)/_layout.tsx` for students and pops up on any tab, except while the pass screen (`parking/reserved.tsx`) is open, which shows the same two buttons itself (`passOnScreen`). Closing it without answering asks again on the next launch.
-- Yes → `confirm_parking` (sets `confirmed_at`). Cancel → `cancel_parking`: status cancelled, `refunded_at` / `refund_amount` recorded, the spot is free at once. Full refund only until 30 min after the arrival time (`REFUND_AFTER_MIN`, enforced in SQL too). Payments are simulated, so the refund is only recorded; a real payment provider's refund call belongs in `cancel_parking`.
+- Yes → `confirm_parking` (sets `confirmed_at`). Cancel → `cancel_parking`: status cancelled, `refunded_at` / `refund_amount` recorded, the spot is free at once. Full refund only until 30 min after the arrival time (`REFUND_AFTER_MIN`, enforced in SQL too); after that the pass still offers "Cancel reservation", which frees the spot without a refund (patch 11). Payments are simulated, so the refund is only recorded; a real payment provider's refund call belongs in `cancel_parking`.
 - Clock: `parkingNow()` is the real Riyadh time in live mode (the database checks refunds against its own clock) and the frozen demo clock in mock mode. With the mock clock at 11:25, booking 11:30 shows the question straight away.
 
 ## Free parking zone maps

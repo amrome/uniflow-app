@@ -76,3 +76,20 @@ test('booking a near time asks "still coming?" after leaving the pass; cancel re
   );
   await act(async () => {});
 });
+
+test('a ticket past the refund time can still be cancelled, without a refund', async () => {
+  await reserveSlot('mada', 600); // arrival 10:00, now 11:25: more than 30 minutes late
+  await renderRouter('./src/app', { initialUrl: '/login' });
+  const user = userEvent.setup();
+  await user.press(await screen.findByText('Log In'));
+  await user.press((await screen.findAllByRole('tab'))[3]); // Parking
+  await user.press(await screen.findByText(/View your pass/));
+  expect(screen.queryByText('Cancel & get refund')).toBeNull();
+  await user.press(await screen.findByRole('button', { name: 'Cancel reservation' }));
+  await user.press(screen.getAllByText('Cancel reservation').slice(-1)[0]); // confirm in the dialog
+  expect(reservation.get()).toBeNull();
+  expect(mockShow).toHaveBeenCalledWith(
+    expect.objectContaining({ body: expect.stringContaining('No refund') }),
+  );
+  await act(async () => {});
+});

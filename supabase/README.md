@@ -22,7 +22,7 @@ In **SQL Editor → New query**, run these three files **in order**, one at a ti
 | `03_seed.sql`      | The prototype's data: restaurants and menus, shuttle times, 15 instructors and timetables, clubs, events, parking zones, affairs services |
 
 Then run the patches in order: `04_reservation_number.sql`, `05_guest_affairs.sql`,
-`06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql` (`07_demo_all_portals.sql` is an optional demo helper).
+`06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql` (`07_demo_all_portals.sql` is an optional demo helper).
 
 Each is meant to run **once**. To start over: Project Settings → Database → reset, or delete and recreate the project.
 

@@ -8,6 +8,7 @@ import { fmt, useI18n } from '@/i18n';
 import { formatTime } from '@/services/clock';
 import { reportError } from '@/services/errors';
 import {
+  canRefund,
   cancelReservation,
   confirmReservation,
   needsCheck,
@@ -40,17 +41,20 @@ export function useParkingAnswer() {
   };
 
   const cancel = async (r: Reservation) => {
+    const refund = canRefund(r);
     setBusy(true);
     try {
       await cancelReservation();
       toast.show({
-        emoji: '💸',
+        emoji: refund ? '💸' : '🅿️',
         title: t.parking.check.refundTitle,
-        body: fmt(t.parking.check.refundBody, {
-          amount: fmt(t.food.price, { n: r.amount }),
-          method: methodName(r),
-          slot: r.slot,
-        }),
+        body: refund
+          ? fmt(t.parking.check.refundBody, {
+              amount: fmt(t.food.price, { n: r.amount }),
+              method: methodName(r),
+              slot: r.slot,
+            })
+          : fmt(t.parking.check.noRefundBody, { slot: r.slot }),
       });
       return true;
     } catch (e) {

@@ -18,6 +18,7 @@ export async function boot(
     '08_restaurant_portal.sql',
     '09_free_zone_slots.sql',
     '10_parking_confirm.sql',
+    '11_parking_cancel_anytime.sql',
   ],
 ) {
   const db = new PGlite({ extensions: { btree_gist } });

@@ -317,6 +317,10 @@ export const en = {
       cancelTitle: 'Cancel this reservation?',
       cancelBody: 'You get {amount} back and spot {slot} goes to someone else.',
       keep: 'Keep it',
+      cancelNoRefund: 'Cancel reservation',
+      cancelLateBody:
+        "It's more than 30 minutes past your arrival time, so there is no refund. Spot {slot} goes to someone else.",
+      noRefundBody: 'Spot {slot} is free for others. No refund: it was past the refund time.',
     },
     pay: 'Pay {amount}',
     reservedTitle: 'Parking Reserved',

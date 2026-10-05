@@ -104,22 +104,24 @@ export default function ParkingReserved() {
           onPress={() => Linking.openURL(DIRECTIONS_URL).catch(() => {})}
         />
         <Button label={t.common.done} variant="secondary" style={styles.full} onPress={done} />
-        {refundable && (
-          <Button
-            label={t.parking.check.cancel}
-            variant="danger"
-            style={styles.full}
-            disabled={busy}
-            onPress={() => setAsking(true)}
-          />
-        )}
+        {/* Always possible: a full refund inside the window, after it the spot is just freed */}
+        <Button
+          label={refundable ? t.parking.check.cancel : t.parking.check.cancelNoRefund}
+          variant="danger"
+          style={styles.full}
+          disabled={busy}
+          onPress={() => setAsking(true)}
+        />
       </View>
       <ConfirmDialog
         visible={asking}
         title={t.parking.check.cancelTitle}
-        body={fmt(t.parking.check.cancelBody, { amount, slot: r.slot })}
+        body={fmt(refundable ? t.parking.check.cancelBody : t.parking.check.cancelLateBody, {
+          amount,
+          slot: r.slot,
+        })}
         keepLabel={t.parking.check.keep}
-        confirmLabel={t.parking.check.cancel}
+        confirmLabel={refundable ? t.parking.check.cancel : t.parking.check.cancelNoRefund}
         onKeep={() => setAsking(false)}
         onConfirm={async () => {
           setAsking(false);
