@@ -659,6 +659,26 @@ ok(
   JSON.stringify(late),
 );
 
+console.log('\n-- paid parking is live (12_parking_live_reservations.sql)');
+ok(
+  'reservations send realtime events',
+  (
+    await db.query(
+      `select 1 from pg_publication_tables where pubname = 'supabase_realtime' and tablename = 'parking_reservations'`,
+    )
+  ).rowCount === 1,
+);
+const xmin = async () =>
+  (await db.query(`select xmin::text as x from parking_lots where slug = 'paid'`)).rows[0].x;
+const before12 = await xmin();
+const r12 = (await as(db, stu, `select * from reserve_parking('${paid}', 'mada')`)).rows[0];
+const afterBook = await xmin();
+await as(db, stu, `select * from cancel_parking('${r12.id}')`);
+ok(
+  "booking and cancelling touch Zone P, so everyone's free count refreshes",
+  afterBook !== before12 && (await xmin()) !== afterBook,
+);
+
 console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
 const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
 const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');

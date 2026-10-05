@@ -338,6 +338,7 @@ export const en = {
     statusConfirmed: 'Confirmed ✓',
     statusWaiting: 'Confirm 30 min before',
     statusAsk: 'Please confirm',
+    statusPassed: 'Arrival time passed',
     check: {
       title: 'Are you still coming?',
       body: 'Spot {slot} is held for you at {time}. Confirm, or cancel and get {amount} back.',

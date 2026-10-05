@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react';
+import { AppState } from 'react-native';
 
 import { ErrorToaster } from '@/components/ui/ErrorToaster';
 
@@ -109,6 +110,11 @@ function subscribeLive(kitchen?: string): () => void {
     .channel('uniflow-live')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_slots' }, parking)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'parking_lots' }, parking)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'parking_reservations' },
+      parking,
+    )
     .on('postgres_changes', { event: '*', schema: 'public', table: 'queue_tickets' }, queue)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, orders)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'menu_items' }, food)
@@ -122,8 +128,17 @@ function subscribeLive(kitchen?: string): () => void {
     else if (Object.values(orderStatuses.get()).some((s) => s !== 'completed' && s !== 'cancelled'))
       refreshMyOrders().catch(() => {});
   }, 15_000);
+  // Realtime pauses while the app is in the background: catch up when it comes back.
+  const foreground = AppState.addEventListener('change', (state) => {
+    if (state !== 'active') return;
+    hydrateParking().catch(() => {});
+    if (tickets.get().length) refreshTickets().catch(() => {});
+    if (kitchen) hydrateKitchen(kitchen).catch(() => {});
+    else refreshMyOrders().catch(() => {});
+  });
   return () => {
     clearInterval(poll);
+    foreground.remove();
     client.removeChannel(channel);
   };
 }

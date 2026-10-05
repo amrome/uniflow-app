@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql`, `12_parking_live_reservations.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -17,7 +17,7 @@ The README says services are mocked; check `src/services` to see what is already
 - Roles: pre-approved `staff_emails` list. University admin gets `admin`, club admin is a `club_members` row, instructor is linked by `instructors.email`.
 - Stores (`createStore` in `services/store.ts`) are the cache. Services hydrate them after sign-in (`services/data.tsx`) and write through (optimistic, rollback via `reportError`). New data needs three things: SQL, a mapper in the service, a hydrate call.
 - Multi-step writes are SQL RPCs: `place_order`, `reserve_parking`, `book_queue_ticket`, `save_week`, `save_portal`, `save_shuttle_times`, `kitchen_orders`, `set_order_status`, `confirm_parking`, `cancel_parking`.
-- `npm run test:db` runs the SQL and RLS in PGlite (108 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
+- `npm run test:db` runs the SQL and RLS in PGlite (110 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
 - Not yet verified against a real Supabase project (needs the user's keys): auth emails, anonymous sign-in, realtime channels, PostgREST embeds (`clubs(slug)` etc.).
 
 ## Restaurant portal (iPad in each restaurant)
@@ -32,6 +32,7 @@ The README says services are mocked; check `src/services` to see what is already
 
 - Checkout asks for an arrival time (half-hour chips from the next half hour to 11:30 PM). From 30 min before it (`CHECK_BEFORE_MIN`) the app asks "Are you still coming?": `ParkingCheck` (`features/parking/ParkingCheck.tsx`) is mounted in `(tabs)/_layout.tsx` for students and pops up on any tab, except while the pass screen (`parking/reserved.tsx`) is open, which shows the same two buttons itself (`passOnScreen`). Closing it without answering asks again on the next launch.
 - Yes → `confirm_parking` (sets `confirmed_at`). Cancel → `cancel_parking`: status cancelled, `refunded_at` / `refund_amount` recorded, the spot is free at once. Full refund only until 30 min after the arrival time (`REFUND_AFTER_MIN`, enforced in SQL too); after that the pass still offers "Cancel reservation", which frees the spot without a refund (patch 11). Payments are simulated, so the refund is only recorded; a real payment provider's refund call belongs in `cancel_parking`.
+- Live: `parking_reservations` is in realtime (patch 12) and every reservation change touches its `parking_lots` row, because realtime only delivers rows a user may read; that touch is what refreshes everyone's Zone P free count. `data.tsx` also re-reads parking, queue and orders when the app returns to the foreground. If the reservation disappears while the pass is open, the pass redirects to Parking.
 - Clock: `parkingNow()` is the real Riyadh time in live mode (the database checks refunds against its own clock) and the frozen demo clock in mock mode. With the mock clock at 11:25, booking 11:30 shows the question straight away.
 
 ## Free parking zone maps

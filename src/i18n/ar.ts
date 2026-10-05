@@ -339,6 +339,7 @@ export const ar: Translations = {
     statusConfirmed: 'مؤكد ✓',
     statusWaiting: 'التأكيد قبل 30 دقيقة',
     statusAsk: 'يرجى التأكيد',
+    statusPassed: 'انتهى وقت الوصول',
     check: {
       title: 'هل ما زلت قادمًا؟',
       body: 'الموقف {slot} محجوز لك الساعة {time}. أكّد حضورك، أو ألغِ الحجز واسترد {amount}.',
