@@ -601,6 +601,59 @@ ok("a student can't fake a sensor", (await zoneCounts('north')).free === 11);
 await db.exec(readFileSync(new URL('../09_free_zone_slots.sql', import.meta.url), 'utf8'));
 ok('patch 09 can run twice', (await bays('north')).length === 120);
 
+console.log('\n-- parking: still coming? (10_parking_confirm.sql)');
+const freeBefore = await zoneFree();
+const later = (
+  await as(
+    db,
+    stu,
+    `select * from reserve_parking('${paid}', 'mada', least(now() + interval '1 hour', date_trunc('day', now() at time zone 'Asia/Riyadh') at time zone 'Asia/Riyadh' + interval '23 hours 59 minutes'))`,
+  )
+).rows[0];
+ok(
+  'a reservation keeps its arrival time',
+  later.arrive_at !== null && String(later.arrive_at) !== String(later.starts_at),
+);
+await fails(
+  'an arrival time tomorrow is rejected',
+  as(db, stu2, `select * from reserve_parking('${paid}', 'mada', now() + interval '2 days')`),
+  'today',
+);
+await fails(
+  "nobody can confirm someone else's reservation",
+  as(db, stu2, `select * from confirm_parking('${later.id}')`),
+  'no longer active',
+);
+await as(db, stu, `select * from confirm_parking('${later.id}')`);
+ok(
+  "'Yes, I'm coming' confirms it",
+  (await db.query('select confirmed_at from parking_reservations where id=$1', [later.id])).rows[0]
+    .confirmed_at !== null,
+);
+ok('the confirmed spot is still taken', (await zoneFree()) === freeBefore - 1);
+const cancelled = (await as(db, stu, `select * from cancel_parking('${later.id}')`)).rows[0];
+ok(
+  'cancelling refunds the full amount and frees the spot',
+  cancelled.status === 'cancelled' &&
+    Number(cancelled.refund_amount) === 80 &&
+    cancelled.refunded_at !== null &&
+    (await zoneFree()) === freeBefore,
+);
+await fails(
+  'a reservation can only be refunded once',
+  as(db, stu, `select * from cancel_parking('${later.id}')`),
+  'no longer active',
+);
+await db.query(
+  `update parking_reservations set arrive_at = now() - interval '1 hour' where id = $1`,
+  [res2.id],
+);
+await fails(
+  'no refund later than 30 minutes after the arrival time',
+  as(db, stu2, `select * from cancel_parking('${res2.id}')`),
+  'too late',
+);
+
 console.log('\n-- one account for every portal (07_demo_all_portals.sql)');
 const all = await mk('demo@yu.edu.sa', 'Demo All Portals');
 const helper = readFileSync(new URL('../07_demo_all_portals.sql', import.meta.url), 'utf8');

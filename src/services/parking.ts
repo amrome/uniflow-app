@@ -1,4 +1,8 @@
+import { minutesOfDay, todayAtMinutes } from '@/lib/time';
+
 import { bi, db, fetchAll, live, ok, requireUserId } from './backend';
+import { nowMinutes } from './clock';
+import { reportError } from './errors';
 import { createStore, createToggleSet } from './store';
 
 // Figma 06 · Parking: one paid zone (P) plus four free sensor-monitored zones.
@@ -161,6 +165,10 @@ export type Reservation = {
   slot: string;
   method: PaymentMethod;
   amount: number;
+  /** When the student said they'd arrive, in minutes since midnight. */
+  arriveAt: number;
+  /** They answered "Yes, I'm coming". */
+  confirmed?: boolean;
 };
 
 let mockReservationSeq = 10001;
@@ -168,10 +176,80 @@ let mockReservationSeq = 10001;
 /** The student's paid reservation for today (one at a time). */
 export const reservation = createStore<Reservation | null>(null);
 
-export async function reserveSlot(method: PaymentMethod): Promise<Reservation> {
+/**
+ * The clock for paid reservations. With a backend it is the real Riyadh time, because the database
+ * checks refunds against its own clock; the mock keeps the frozen demo clock like the rest of the app.
+ */
+export function parkingNow(): number {
+  return live ? minutesOfDay(new Date().toISOString()) : nowMinutes();
+}
+
+/** True while the parking pass is on screen: it asks the same question itself. */
+export const passOnScreen = createStore(false);
+
+/** "Are you still coming?" is asked this many minutes before the arrival time. */
+export const CHECK_BEFORE_MIN = 30;
+/** A full refund is possible until this many minutes after the arrival time. */
+export const REFUND_AFTER_MIN = 30;
+
+/** Arrival times offered at checkout: every half hour from the next one until 11:30 PM. */
+export function arrivalSlots(now = parkingNow()): number[] {
+  const first = Math.ceil((now + 1) / 30) * 30;
+  const slots: number[] = [];
+  for (let m = first; m <= 23 * 60 + 30; m += 30) slots.push(m);
+  return slots;
+}
+
+/** True when the app should ask "Are you still coming?" (unanswered, close to arrival). */
+export function needsCheck(r: Reservation | null, now = parkingNow()): r is Reservation {
+  return !!r && !r.confirmed && now >= r.arriveAt - CHECK_BEFORE_MIN && canRefund(r, now);
+}
+
+/** Cancelling (with a full refund) is still possible. */
+export function canRefund(r: Reservation, now = parkingNow()): boolean {
+  return now <= r.arriveAt + REFUND_AFTER_MIN;
+}
+
+/** "Yes, I'm coming": keeps the spot. */
+export function confirmReservation() {
+  const r = reservation.get();
+  if (!r) return;
+  reservation.set({ ...r, confirmed: true });
+  if (!live || !r.id) return;
+  ok(db().rpc('confirm_parking', { p_reservation: r.id })).catch((e) => {
+    reservation.set((cur) => (cur && cur.id === r.id ? { ...cur, confirmed: r.confirmed } : cur));
+    reportError(e);
+  });
+}
+
+/** "Cancel & get refund": the spot is free for others again and the money goes back. */
+export async function cancelReservation(): Promise<Reservation | null> {
+  const r = reservation.get();
+  if (!r) return null;
+  if (live && r.id) {
+    await ok(db().rpc('cancel_parking', { p_reservation: r.id }));
+    reservation.set(null);
+    hydrateParking().catch(() => {}); // the zone count goes back up
+    return r;
+  }
+  reservation.set(null);
+  paidZoneStore.set((z) => ({ ...z, free: Math.min(z.total, z.free + 1) }));
+  return r;
+}
+
+export async function reserveSlot(
+  method: PaymentMethod,
+  arriveAt: number = arrivalSlots()[0] ?? parkingNow(),
+): Promise<Reservation> {
   const zone = paidZoneStore.get();
   if (!live) {
-    const r = { number: `PK-${mockReservationSeq++}`, slot: 'P-17', method, amount: zone.price };
+    const r = {
+      number: `PK-${mockReservationSeq++}`,
+      slot: 'P-17',
+      method,
+      amount: zone.price,
+      arriveAt,
+    };
     reservation.set(r);
     paidZoneStore.set((z) => ({ ...z, free: Math.max(0, z.free - 1) }));
     return r;
@@ -183,7 +261,13 @@ export async function reserveSlot(method: PaymentMethod): Promise<Reservation> {
     slot_id: string;
     amount: number;
     reservation_number: string;
-  }>(db().rpc('reserve_parking', { p_lot: zone.id, p_method: method }));
+  }>(
+    db().rpc('reserve_parking', {
+      p_lot: zone.id,
+      p_method: method,
+      p_arrive: todayAtMinutes(arriveAt),
+    }),
+  );
   const slot = await ok<{ label: string }>(
     db().from('parking_slots').select('label').eq('id', row.slot_id).single(),
   );
@@ -193,6 +277,7 @@ export async function reserveSlot(method: PaymentMethod): Promise<Reservation> {
     slot: slot.label,
     method,
     amount: Number(row.amount),
+    arriveAt,
   };
   reservation.set(r);
   hydrateParking().catch(() => {}); // refresh the free counts
@@ -242,6 +327,9 @@ type ReservationRow = {
   reservation_number: string;
   amount: number;
   payment_method: PaymentMethod | null;
+  starts_at: string;
+  arrive_at: string | null;
+  confirmed_at: string | null;
   parking_slots: { label: string } | null;
 };
 
@@ -257,7 +345,9 @@ export async function hydrateParking() {
     ok<ReservationRow[]>(
       client
         .from('parking_reservations')
-        .select('id, reservation_number, amount, payment_method, parking_slots(label)')
+        .select(
+          'id, reservation_number, amount, payment_method, starts_at, arrive_at, confirmed_at, parking_slots(label)',
+        )
         .eq('user_id', userId)
         .eq('status', 'active')
         .gt('ends_at', new Date().toISOString())
@@ -333,6 +423,8 @@ export async function hydrateParking() {
           slot: current.parking_slots?.label ?? '—',
           method: current.payment_method ?? 'mada',
           amount: Number(current.amount),
+          arriveAt: minutesOfDay(current.arrive_at ?? current.starts_at),
+          confirmed: !!current.confirmed_at || undefined,
         }
       : null,
   );

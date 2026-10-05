@@ -1,10 +1,19 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
-import { AppText, Button, Screen, TopBar } from '@/components/ui';
+import { AppText, Button, ConfirmDialog, Screen, TopBar } from '@/components/ui';
 import { PopIn } from '@/components/ui/Reveal';
+import { useParkingAnswer } from '@/features/parking/ParkingCheck';
 import { fmt, useI18n } from '@/i18n';
-import { reservation } from '@/services/parking';
+import { formatTime } from '@/services/clock';
+import {
+  CHECK_BEFORE_MIN,
+  canRefund,
+  parkingNow,
+  passOnScreen,
+  reservation,
+} from '@/services/parking';
 import { useTheme } from '@/theme';
 
 // Google Maps link to the parking, opened by "Get Directions".
@@ -12,11 +21,30 @@ const DIRECTIONS_URL = 'https://maps.app.goo.gl/PcBB2SKaQmC9wiSP9';
 
 // Figma 07 · Parking Reserved
 export default function ParkingReserved() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
   const r = reservation.useValue();
+  const { confirm, cancel, busy } = useParkingAnswer();
+  const [asking, setAsking] = useState(false);
+  // This screen asks "still coming?" itself, so the pop-up waits until the student leaves it.
+  useFocusEffect(
+    useCallback(() => {
+      passOnScreen.set(true);
+      return () => passOnScreen.set(false);
+    }, []),
+  );
   if (!r) return null;
+
+  const now = parkingNow();
+  const refundable = canRefund(r, now);
+  const askNow = !r.confirmed && now >= r.arriveAt - CHECK_BEFORE_MIN;
+  const status = r.confirmed
+    ? t.parking.statusConfirmed
+    : askNow
+      ? t.parking.statusAsk
+      : t.parking.statusWaiting;
+  const amount = fmt(t.food.price, { n: r.amount });
 
   const method = { applePay: t.parking.applePay, mada: t.parking.mada, stcPay: t.parking.stcPay }[
     r.method
@@ -58,6 +86,8 @@ export default function ParkingReserved() {
             </View>
           </View>
           {r.number && <PassRow label={t.parking.reservationNo} value={r.number} />}
+          <PassRow label={t.parking.arrivalLabel} value={formatTime(r.arriveAt, language)} />
+          <PassRow label={t.parking.statusLabel} value={status} />
           <PassRow label={t.parking.valid} value={t.parking.validUntil} />
           <PassRow
             label={t.parking.paidLabel}
@@ -65,13 +95,37 @@ export default function ParkingReserved() {
           />
         </View>
 
+        {askNow && refundable && (
+          <Button label={t.parking.check.yes} style={styles.full} onPress={() => confirm(r)} />
+        )}
         <Button
           label={t.parking.directions}
           style={styles.full}
           onPress={() => Linking.openURL(DIRECTIONS_URL).catch(() => {})}
         />
         <Button label={t.common.done} variant="secondary" style={styles.full} onPress={done} />
+        {refundable && (
+          <Button
+            label={t.parking.check.cancel}
+            variant="danger"
+            style={styles.full}
+            disabled={busy}
+            onPress={() => setAsking(true)}
+          />
+        )}
       </View>
+      <ConfirmDialog
+        visible={asking}
+        title={t.parking.check.cancelTitle}
+        body={fmt(t.parking.check.cancelBody, { amount, slot: r.slot })}
+        keepLabel={t.parking.check.keep}
+        confirmLabel={t.parking.check.cancel}
+        onKeep={() => setAsking(false)}
+        onConfirm={async () => {
+          setAsking(false);
+          if (await cancel(r)) done();
+        }}
+      />
     </Screen>
   );
 }
