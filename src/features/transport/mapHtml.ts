@@ -36,6 +36,8 @@ export type MapHtmlConfig = {
   background: string;
   places: MapHtmlPlace[];
   buildings: FeatureCollection;
+  /** 'en' or 'ar' — picks name vs name_ar for building labels. */
+  language: string;
   /** Lifts the map credit above a bottom sheet. */
   attributionBottom: number;
   offlineText: string;
@@ -132,6 +134,41 @@ export function buildMapHtml(config: MapHtmlConfig): string {
         'fill-extrusion-height': ['+', ['to-number', ['get', 'height'], 12], 1],
         'fill-extrusion-base': 0,
         'fill-extrusion-opacity': 0.95
+      }
+    });
+
+    // Building name labels: compute a centroid for each polygon, then show a text label.
+    var labelFeatures = C.buildings.features
+      .filter(function (f) { return f.properties && (f.properties.name || f.properties.name_ar); })
+      .map(function (f) {
+        var coords = f.geometry.coordinates[0];
+        var lng = 0, lat = 0;
+        for (var i = 0; i < coords.length - 1; i++) { lng += coords[i][0]; lat += coords[i][1]; }
+        lng /= (coords.length - 1);
+        lat /= (coords.length - 1);
+        var label = C.language === 'ar' ? (f.properties.name_ar || f.properties.name) : f.properties.name;
+        return { type: 'Feature', geometry: { type: 'Point', coordinates: [lng, lat] }, properties: { label: label || '' } };
+      });
+
+    map.addSource('building-labels', { type: 'geojson', data: { type: 'FeatureCollection', features: labelFeatures } });
+    map.addLayer({
+      id: 'building-labels',
+      type: 'symbol',
+      source: 'building-labels',
+      layout: {
+        'text-field': ['get', 'label'],
+        'text-font': ['Open Sans Bold', 'Noto Sans Arabic Bold', 'Arial Unicode MS Bold'],
+        'text-size': 11,
+        'text-anchor': 'center',
+        'text-offset': [0, -1.2],
+        'text-allow-overlap': false,
+        'text-ignore-placement': false,
+        'text-max-width': 8
+      },
+      paint: {
+        'text-color': '#fff',
+        'text-halo-color': 'rgba(0,0,0,0.7)',
+        'text-halo-width': 1.5
       }
     });
 

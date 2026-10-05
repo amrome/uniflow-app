@@ -20,6 +20,7 @@ const base: MapHtmlConfig = {
   background: '#F2EFEA',
   places: [{ id: 'campus', label: 'Al-Yamamah University', lngLat: [46.59, 24.86], dot: 'brand' }],
   buildings: CAMPUS_BUILDINGS,
+  language: 'en',
   attributionBottom: 0,
   offlineText: 'The map needs an internet connection.',
 };

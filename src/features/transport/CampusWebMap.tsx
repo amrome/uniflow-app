@@ -87,6 +87,7 @@ export function CampusWebMap({
           dot: p.id === 'sab' ? 'ink' : 'brand',
         })),
         buildings: CAMPUS_BUILDINGS,
+        language,
         attributionBottom,
         offlineText: t.transport.mapOffline,
       }),
