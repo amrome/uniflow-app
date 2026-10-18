@@ -5,7 +5,7 @@ instructor schedules, food pre-ordering, parking, events, transportation and pro
 
 ## Stack
 
-Expo SDK 57 · React Native · TypeScript (strict) · expo-router · Jest · ESLint + Prettier
+Expo SDK 58 (Node 22.13+) · React Native · TypeScript (strict) · expo-router · Jest · ESLint + Prettier
 
 ## Getting started
 

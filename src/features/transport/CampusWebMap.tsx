@@ -58,7 +58,9 @@ export function CampusWebMap({
 }: Props) {
   const { language, t } = useI18n();
   const { colors, isDark } = useTheme();
-  const webRef = useRef<WebView>(null);
+  // react-native-webview 14 defaults its extra-props type to `undefined`, which turns every prop
+  // into `never`; `<object>` restores the normal props.
+  const webRef = useRef<WebView<object>>(null);
 
   useImperativeHandle(
     ref,
@@ -138,7 +140,7 @@ export function CampusWebMap({
 
   return (
     <View style={[styles.fill, style]}>
-      <WebView
+      <WebView<object>
         ref={webRef}
         source={{ html, baseUrl: MAP_BASE_URL }}
         originWhitelist={['*']}
