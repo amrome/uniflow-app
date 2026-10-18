@@ -6,11 +6,80 @@ import { Icon, Logo } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen, TextField } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { errorMessage } from '@/services/errors';
-import { useSession } from '@/services/session';
+import { OPEN_ENTRY, useSession, type Role } from '@/services/session';
 import { layout, useTheme } from '@/theme';
 
+// Demo (EXPO_PUBLIC_SKIP_AUTH=1): one Enter button per portal instead of the sign-in form.
+function OpenEntry() {
+  const { t } = useI18n();
+  const { colors } = useTheme();
+  const router = useRouter();
+  const { enterPortal } = useSession();
+  const [busy, setBusy] = useState(false);
+
+  const enter = async (role: Role) => {
+    setBusy(true);
+    try {
+      await enterPortal(role);
+      router.replace('/'); // the entry screen sends each role to its own home
+    } catch (e) {
+      Alert.alert(t.auth.logIn, errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const staff: [Role, string][] = [
+    ['instructor', t.staff.demoInstructor],
+    ['clubAdmin', t.staff.demoClub],
+    ['uniAdmin', t.staff.demoUni],
+    ['restaurant', t.staff.demoRestaurant],
+  ];
+
+  return (
+    <Screen gutter={layout.authGutter} gap={16}>
+      <View style={styles.toggleRow}>
+        <LangToggle />
+      </View>
+      <View style={styles.hero}>
+        <Logo size={84} />
+        <AppText variant="display" align="center">
+          {t.auth.welcome}
+        </AppText>
+        <AppText tone="secondary" align="center">
+          {t.auth.openEntryNote}
+        </AppText>
+      </View>
+      <Button label={t.auth.enterStudent} onPress={() => enter('student')} disabled={busy} />
+      <Button
+        label={t.auth.enterGuest}
+        variant="secondary"
+        onPress={() => enter('guest')}
+        disabled={busy}
+      />
+      <View style={styles.divider}>
+        <View style={[styles.rule, { backgroundColor: colors.borderDefault }]} />
+        <Icon name="briefcase" size={14} color={colors.textSecondary} />
+        <AppText variant="label" weight="regular" tone="secondary">
+          {t.auth.staffPortals}
+        </AppText>
+        <View style={[styles.rule, { backgroundColor: colors.borderDefault }]} />
+      </View>
+      {staff.map(([role, label]) => (
+        <Button
+          key={role}
+          label={label}
+          variant="secondary"
+          onPress={() => enter(role)}
+          disabled={busy}
+        />
+      ))}
+    </Screen>
+  );
+}
+
 // Figma 01 · Login
-export default function Login() {
+function Login() {
   const { t } = useI18n();
   const { colors } = useTheme();
   const router = useRouter();
@@ -107,6 +176,8 @@ export default function Login() {
     </Screen>
   );
 }
+
+export default OPEN_ENTRY ? OpenEntry : Login;
 
 const styles = StyleSheet.create({
   toggleRow: { flexDirection: 'row', justifyContent: 'flex-end', marginEnd: -20 },

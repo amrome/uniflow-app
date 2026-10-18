@@ -45,6 +45,10 @@ export const en = {
       'Use your university email (@yu.edu.sa) to get student access. Other emails get guest access.',
     checkEmailTitle: 'Check your email',
     checkEmailBody: 'We sent a confirmation link to {email}. Open it, then log in.',
+    openEntryNote: 'Demo version: pick a portal to enter, no password needed.',
+    enterStudent: 'Enter as Student',
+    enterGuest: 'Enter as Guest',
+    staffPortals: 'Staff portals',
   },
   guestReg: {
     title: 'Guest Registration',

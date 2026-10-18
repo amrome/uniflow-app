@@ -94,16 +94,17 @@ The README says services are mocked; check `src/services` to see what is already
 - Transitions: only logging out animates (Login slides in from the left, done by hand in `Screen` via `components/ui/slideFromLeft.ts`: call `requestSlideFromLeft()` right before navigating). Getting back to a home page has no animation: the student Home tab does not slide, and `(tabs)` has `animation: 'none'` so the guest Home button and Back from a guest service appear directly. Native `animation` options were unreliable for the slide, so don't use them for it.
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
 
-## Demo mode (skip login for judges)
+## Demo mode (open entry, no login)
 
-- Set `EXPO_PUBLIC_SKIP_AUTH=1` in `.env` and restart with `npx expo start --clear`. The app opens straight on the student Home, no login.
-- Without Supabase keys that is the mock student. With Supabase keys also set `EXPO_PUBLIC_DEMO_EMAIL` / `EXPO_PUBLIC_DEMO_PASSWORD` to a real demo student account, so orders and reservations belong to a real user. Without them the login screen shows as usual.
-- Remove the line (or set it to anything else) to bring authentication back. Logic is in `services/session.tsx` (`SKIP_AUTH`). The login screens and guest flow still exist, nothing was deleted.
+- Set `EXPO_PUBLIC_SKIP_AUTH=1` in `.env` and restart with `npx expo start --clear` (or re-export the web build). Login becomes one Enter button per portal: Student, Guest, Instructor, Club president, University staff, Restaurant (`OpenEntry` in `src/app/login.tsx`, `enterPortal` in `services/session.tsx`). Nothing signs in by itself; Log out returns to the buttons. Used for the public web demo at https://uniflow-app.expo.app.
+- Without Supabase keys every button opens the mock user. With Supabase keys also set `EXPO_PUBLIC_DEMO_EMAIL` / `EXPO_PUBLIC_DEMO_PASSWORD`: every portal except Guest signs in that one account, so it must hold all roles (`07_demo_all_portals.sql` + the demo block of `08_restaurant_portal.sql`). Without them the buttons show "Demo account missing". Guest uses anonymous sign-in (must be enabled in Supabase Auth). All visitors share the demo account and its data.
+- Remove the line (or set it to anything else) to bring authentication back. Logic is in `services/session.tsx` (`OPEN_ENTRY`). The login screens and guest flow still exist, nothing was deleted.
 - The `.env` values are baked into the bundle, so use a throwaway demo account, never a real one.
 - The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport, Food and Affairs (a button to `/home/affairs`, highlighted while the hidden Home tab is focused), spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs hidden with `href: null` (expo-router turns that into `tabBarItemStyle: { display: 'none' }`, which is what the custom bar checks).
 
 ## Sharing the app for the demo
 
+- Website: https://uniflow-app.expo.app (EAS Hosting, any `*.expo.app` address is EAS Hosting). It runs on mock data with open entry, so nobody needs an account. Redeploy (PowerShell): `$env:EXPO_NO_DOTENV='1'; $env:EXPO_PUBLIC_SKIP_AUTH='1'; npx expo export -p web --clear; npx eas-cli@latest deploy --prod`. `EXPO_NO_DOTENV` keeps the `.env` Supabase keys out of the web build.
 - `npm start` only works for phones on the same Wi-Fi as the dev PC (LAN address). For people on other networks use `npm run start:tunnel` (PC must stay on).
 - Better for judges: EAS Update (`eas update`, runs in Expo Go with the PC off) or an Android APK (`eas build -p android --profile preview`). Neither is set up yet: no `eas.json`, needs an Expo account.
 - The `.env` Supabase keys are baked in when the bundle is built or published, so publish from a machine that has `.env`.

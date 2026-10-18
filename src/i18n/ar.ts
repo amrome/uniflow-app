@@ -47,6 +47,10 @@ export const ar: Translations = {
     staffLogin: 'دخول الموظفين (الدكاترة والمشرفون)',
     needHelp: 'تحتاج مساعدة في تسجيل الدخول؟',
     contactSupport: 'تواصل مع الدعم',
+    openEntryNote: 'نسخة تجريبية: اختر البوابة للدخول بدون كلمة مرور.',
+    enterStudent: 'الدخول كطالب',
+    enterGuest: 'الدخول كزائر',
+    staffPortals: 'بوابات الموظفين',
   },
   guestReg: {
     title: 'تسجيل زائر',

@@ -43,6 +43,8 @@ type SessionContextValue = {
   signUp: (name: string, email: string, password: string) => Promise<'signedIn' | 'confirmEmail'>;
   signInGuest: (name: string, contact: string) => Promise<Session>;
   signInStaff: (email: string, password?: string, role?: StaffRole) => Promise<Session>;
+  /** Open entry (OPEN_ENTRY): one tap opens a portal, no email or password. */
+  enterPortal: (role: Role) => Promise<Session>;
   signOut: () => Promise<void>;
 };
 
@@ -54,7 +56,8 @@ const SessionContext = createContext<SessionContextValue | null>(null);
  */
 export function detectStaffRole(email: string): StaffRole {
   const e = email.toLowerCase();
-  if (e.includes('restaurant') || e.includes('kitchen') || e.includes('kafton')) return 'restaurant';
+  if (e.includes('restaurant') || e.includes('kitchen') || e.includes('kafton'))
+    return 'restaurant';
   if (e.includes('president') || e.includes('club')) return 'clubAdmin';
   if (e.includes('admin') || e.includes('staff') || e.includes('affairs')) return 'uniAdmin';
   return 'instructor';
@@ -77,17 +80,13 @@ export const staffDemoEmails = {
 
 const STAFF_MODE_KEY = 'uniflow.staffMode';
 
-// Demo switch (see "Demo mode" in CLAUDE.md): EXPO_PUBLIC_SKIP_AUTH=1 opens the app straight on the
-// student Home. With a backend it signs in the demo account EXPO_PUBLIC_DEMO_EMAIL / _PASSWORD so
-// writes (orders, reservations) still belong to a real user.
-const SKIP_AUTH = process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
+// Demo switch (see "Demo mode" in CLAUDE.md): EXPO_PUBLIC_SKIP_AUTH=1 turns Login into one Enter
+// button per portal. With a backend every portal signs in the demo account
+// EXPO_PUBLIC_DEMO_EMAIL / _PASSWORD (set up with 07_demo_all_portals.sql), so writes (orders,
+// reservations) still belong to a real user.
+export const OPEN_ENTRY = process.env.EXPO_PUBLIC_SKIP_AUTH === '1';
 const DEMO_EMAIL = process.env.EXPO_PUBLIC_DEMO_EMAIL ?? '';
 const DEMO_PASSWORD = process.env.EXPO_PUBLIC_DEMO_PASSWORD ?? '';
-const mockStudent = (): Session => ({
-  role: 'student',
-  name: mockProfile.fullName,
-  email: mockProfile.email,
-});
 
 type ProfileRow = {
   role: string;
@@ -144,9 +143,7 @@ async function loadSession(user: User, asStaff: boolean, wantRole?: StaffRole): 
 }
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [session, setSessionState] = useState<Session | null>(() =>
-    SKIP_AUTH && !live ? mockStudent() : null,
-  );
+  const [session, setSessionState] = useState<Session | null>(null);
   const [ready, setReady] = useState(!live);
 
   // The user id is stored *before* React re-renders, so effects further down the tree (the data
@@ -175,13 +172,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             restored = null;
             await client.auth.signOut().catch(() => {});
           }
-        }
-        if (!restored && SKIP_AUTH && DEMO_EMAIL) {
-          const { data: signedIn, error } = await client.auth.signInWithPassword({
-            email: DEMO_EMAIL,
-            password: DEMO_PASSWORD,
-          });
-          if (!error && signedIn.user) restored = await loadSession(signedIn.user, false);
         }
         if (restored && active) setSession(restored);
       } catch {
@@ -297,6 +287,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [setSession],
   );
 
+  const enterPortal = useCallback(
+    async (role: Role) => {
+      if (role === 'guest') return signInGuest('Guest', '');
+      if (live && !DEMO_EMAIL) {
+        throw new Error('Demo account missing: set EXPO_PUBLIC_DEMO_EMAIL and _PASSWORD in .env');
+      }
+      if (role === 'student')
+        return signInStudent(live ? DEMO_EMAIL : mockProfile.email, DEMO_PASSWORD);
+      return signInStaff(live ? DEMO_EMAIL : staffDemoEmails[role], DEMO_PASSWORD, role);
+    },
+    [signInGuest, signInStudent, signInStaff],
+  );
+
   const signOut = useCallback(async () => {
     setSession(null); // screens react immediately; the server call can finish afterwards
     if (live) {
@@ -308,8 +311,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [setSession]);
 
   const value = useMemo<SessionContextValue>(
-    () => ({ ready, session, signInStudent, signUp, signInGuest, signInStaff, signOut }),
-    [ready, session, signInStudent, signUp, signInGuest, signInStaff, signOut],
+    () => ({
+      ready,
+      session,
+      signInStudent,
+      signUp,
+      signInGuest,
+      signInStaff,
+      enterPortal,
+      signOut,
+    }),
+    [ready, session, signInStudent, signUp, signInGuest, signInStaff, enterPortal, signOut],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }
