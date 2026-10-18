@@ -9,7 +9,13 @@ import { fmt, useI18n } from '@/i18n';
 import { live } from '@/services/backend';
 import { formatDate, formatTime } from '@/services/clock';
 import { reportError } from '@/services/errors';
-import { arrivalSlots, reserveSlot, usePaidZone, type PaymentMethod } from '@/services/parking';
+import {
+  arrivalSlots,
+  passOnScreen,
+  reserveSlot,
+  usePaidZone,
+  type PaymentMethod,
+} from '@/services/parking';
 import { useTheme } from '@/theme';
 
 // Figma 06.1 · Parking Payment
@@ -32,9 +38,12 @@ export default function ParkingPayment() {
   const pay = async () => {
     setPaying(true);
     try {
+      // Prevent ParkingCheck modal from firing during navigation transition.
+      passOnScreen.set(true);
       await reserveSlot(method, arriveAt);
       router.replace('/parking/reserved');
     } catch (e) {
+      passOnScreen.set(false);
       reportError(e);
     } finally {
       setPaying(false);

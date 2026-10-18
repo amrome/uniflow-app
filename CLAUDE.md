@@ -6,7 +6,7 @@ The README covers the stack, scripts, folder structure and conventions. This fil
 
 ## Backend (Supabase)
 
-SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
+SQL files in `supabase/` run in order: `01_schema.sql`, `02_schema_v2.sql`, `03_seed.sql`, `04_reservation_number.sql`, `05_guest_affairs.sql`, `06_multiple_tickets.sql`, `08_restaurant_portal.sql`, `09_free_zone_slots.sql`, `10_parking_confirm.sql`, `11_parking_cancel_anytime.sql`, `12_parking_live_reservations.sql` (optional demo helper: `07_demo_all_portals.sql`). Database tests are in `supabase/tests/`. Add changes as a new numbered file; don't edit old ones.
 Secrets are in `.env` (see `.env.example`). Never read, print or commit it.
 The README says services are mocked; check `src/services` to see what is already wired to Supabase and what is still mocked.
 
@@ -17,7 +17,7 @@ The README says services are mocked; check `src/services` to see what is already
 - Roles: pre-approved `staff_emails` list. University admin gets `admin`, club admin is a `club_members` row, instructor is linked by `instructors.email`.
 - Stores (`createStore` in `services/store.ts`) are the cache. Services hydrate them after sign-in (`services/data.tsx`) and write through (optimistic, rollback via `reportError`). New data needs three things: SQL, a mapper in the service, a hydrate call.
 - Multi-step writes are SQL RPCs: `place_order`, `reserve_parking`, `book_queue_ticket`, `save_week`, `save_portal`, `save_shuttle_times`, `kitchen_orders`, `set_order_status`, `confirm_parking`, `cancel_parking`.
-- `npm run test:db` runs the SQL and RLS in PGlite (108 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
+- `npm run test:db` runs the SQL and RLS in PGlite (110 checks). Keep it passing when changing SQL. Jest also has a fake-Supabase live-mode test.
 - Not yet verified against a real Supabase project (needs the user's keys): auth emails, anonymous sign-in, realtime channels, PostgREST embeds (`clubs(slug)` etc.).
 
 ## Restaurant portal (iPad in each restaurant)
@@ -32,6 +32,7 @@ The README says services are mocked; check `src/services` to see what is already
 
 - Checkout asks for an arrival time (half-hour chips from the next half hour to 11:30 PM). From 30 min before it (`CHECK_BEFORE_MIN`) the app asks "Are you still coming?": `ParkingCheck` (`features/parking/ParkingCheck.tsx`) is mounted in `(tabs)/_layout.tsx` for students and pops up on any tab, except while the pass screen (`parking/reserved.tsx`) is open, which shows the same two buttons itself (`passOnScreen`). Closing it without answering asks again on the next launch.
 - Yes → `confirm_parking` (sets `confirmed_at`). Cancel → `cancel_parking`: status cancelled, `refunded_at` / `refund_amount` recorded, the spot is free at once. Full refund only until 30 min after the arrival time (`REFUND_AFTER_MIN`, enforced in SQL too); after that the pass still offers "Cancel reservation", which frees the spot without a refund (patch 11). Payments are simulated, so the refund is only recorded; a real payment provider's refund call belongs in `cancel_parking`.
+- Live: `parking_reservations` is in realtime (patch 12) and every reservation change touches its `parking_lots` row, because realtime only delivers rows a user may read; that touch is what refreshes everyone's Zone P free count. `data.tsx` also re-reads parking, queue and orders when the app returns to the foreground. If the reservation disappears while the pass is open, the pass redirects to Parking.
 - Clock: `parkingNow()` is the real Riyadh time in live mode (the database checks refunds against its own clock) and the frozen demo clock in mock mode. With the mock clock at 11:25, booking 11:30 shows the question straight away.
 
 ## Free parking zone maps
@@ -88,7 +89,7 @@ The README says services are mocked; check `src/services` to see what is already
 
 ## Navigation rules
 
-- Guests get Food, Transport and Student Affairs (the guest home has a tile for each; the Affairs screens live under `/home/affairs`; `book_queue_ticket` allows guests since patch 05). Parking, schedules, events and profile stay student-only. Guests only have tabs for Food + Transport. The student-only tabs are hidden with `href: null`, but they still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
+- Guests get Food, Transport and Student Affairs (the guest home has a tile for each; the Affairs screens live under `/home/affairs`; `book_queue_ticket` allows guests since patch 05). Parking, schedules, events and profile stay student-only. Guests only have tabs for Food + Transport. The student-only tabs are hidden with `tabBarItemStyle: { display: 'none' }` (never `href: null`: since SDK 58 that makes the route unreachable and redirects to Transport, which broke the guest Affairs tile). They still exist as the first tab, so `(tabs)/_layout.tsx` sets `backBehavior="none"` for guests. Without it, Back from Food or Transport jumps to the student Home.
 - Launch: students and staff stay signed in (saved Supabase session is restored in `services/session.tsx`). A guest session is never restored: guests are signed out on relaunch, so the app starts at Login.
 - Transitions: only logging out animates (Login slides in from the left, done by hand in `Screen` via `components/ui/slideFromLeft.ts`: call `requestSlideFromLeft()` right before navigating). Getting back to a home page has no animation: the student Home tab does not slide, and `(tabs)` has `animation: 'none'` so the guest Home button and Back from a guest service appear directly. Native `animation` options were unreliable for the slide, so don't use them for it.
 - Signed-in users can't go back to login (`Stack.Protected` in `src/app/_layout.tsx`). Tests for this are in `src/__tests__/auth-nav.test.tsx`.
@@ -99,12 +100,13 @@ The README says services are mocked; check `src/services` to see what is already
 - Without Supabase keys that is the mock student. With Supabase keys also set `EXPO_PUBLIC_DEMO_EMAIL` / `EXPO_PUBLIC_DEMO_PASSWORD` to a real demo student account, so orders and reservations belong to a real user. Without them the login screen shows as usual.
 - Remove the line (or set it to anything else) to bring authentication back. Logic is in `services/session.tsx` (`SKIP_AUTH`). The login screens and guest flow still exist, nothing was deleted.
 - The `.env` values are baked into the bundle, so use a throwaway demo account, never a real one.
-- The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport, Food and Affairs (a button to `/home/affairs`, highlighted while the hidden Home tab is focused), spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs hidden with `href: null` (expo-router turns that into `tabBarItemStyle: { display: 'none' }`, which is what the custom bar checks).
+- The guest tab bar shows Home (a button to `/guest`, drawn by `TabBar` itself), Transport, Food and Affairs (a button to `/home/affairs`, highlighted while the hidden Home tab is focused), spaced evenly. Never any student-only tab. It is built from: `TabBar` skips tabs whose `tabBarItemStyle` has `display: 'none'` (set for guests in `(tabs)/_layout.tsx`).
 
 ## Sharing the app for the demo
 
 - `npm start` only works for phones on the same Wi-Fi as the dev PC (LAN address). For people on other networks use `npm run start:tunnel` (PC must stay on).
-- Better for judges: EAS Update (`eas update`, runs in Expo Go with the PC off) or an Android APK (`eas build -p android --profile preview`). Neither is set up yet: no `eas.json`, needs an Expo account.
+- Better for judges: EAS Update (`eas update`, runs in Expo Go with the PC off) or an Android APK (`eas build -p android --profile preview`). EAS is set up: Expo account `ame76`, `eas.json` has `preview` (APK, channel `preview`) and `production` profiles, `expo-updates` is installed (runtime version = app version). Cloud builds don't upload the git-ignored `.env`, so the `EXPO_PUBLIC_*` values must also be saved as EAS environment variables, or the build runs on mock data. iPhones can't install an APK: they need TestFlight (Apple Developer account) or Expo Go.
+- Expo Go from the store runs only the newest SDK. When SDK 58 came out (2026-09-29), the Expo Go QR for our SDK 57 updates stopped opening the app, so on 2026-10-18 the app moved to SDK 58 (app version 1.1.0, needs Node 22.13+; nvm is installed) and was republished to `preview`. Expo Go friends open the update link `exp://u.expo.dev/0bc6f3de-a811-453f-ac69-b2f5e781ef28/group/<update group id>` (QR on the update's expo.dev page). This breaks again at every new SDK: upgrade, bump `version` in `app.json` (it is the runtime version, so an old APK never receives a newer-SDK update), then `eas update --channel preview --environment preview`. Upgrading: `npx expo install expo@^NN`, then `npx expo install --fix -- --legacy-peer-deps`, then a clean `node_modules` + lock reinstall. SDK 58 also needed `@react-native/jest-preset`, the new tab bar props (`emitter`, `navigateToTab`) and a `WebView<object>` type fix.
 - The `.env` Supabase keys are baked in when the bundle is built or published, so publish from a machine that has `.env`.
 
 ## One account for all portals (demo)

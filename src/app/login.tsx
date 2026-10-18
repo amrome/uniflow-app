@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { Icon, Logo } from '@/components/icons';
 import { AppText, Button, LangToggle, Screen, TextField } from '@/components/ui';
@@ -94,6 +94,16 @@ export default function Login() {
           {t.auth.staffLogin}
         </AppText>
       </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => Linking.openURL('mailto:support@yu.edu.sa')}
+        style={[styles.support, { backgroundColor: colors.backgroundSurface }]}
+      >
+        <Icon name="help" size={16} color={colors.brandPrimary} />
+        <AppText variant="caption" weight="semibold" tone="brand">
+          {t.auth.contactSupport}
+        </AppText>
+      </Pressable>
     </Screen>
   );
 }
@@ -109,5 +119,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 6,
+  },
+  support: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-end',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    marginTop: 12,
   },
 });

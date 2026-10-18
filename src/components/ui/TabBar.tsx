@@ -20,7 +20,7 @@ const icons: Record<string, IconName> = {
 };
 
 /** Figma NavBar/Default: 5 tabs, 24px icons, 11px labels, brand tint when active. */
-export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
+export function TabBar({ state, descriptors, emitter, navigateToTab }: BottomTabBarProps) {
   const { colors, isDark } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -62,8 +62,7 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
       {state.routes.map((route, index) => {
         const focused = state.index === index;
         const { options } = descriptors[route.key];
-        // Tabs hidden for this user (`href: null`, e.g. student-only tabs for guests) get no button.
-        // expo-router turns `href: null` into `tabBarItemStyle: { display: 'none' }`.
+        // Tabs hidden for this user (student-only tabs for guests, see (tabs)/_layout.tsx) get no button.
         if (StyleSheet.flatten(options.tabBarItemStyle)?.display === 'none') return null;
         const label = typeof options.title === 'string' ? options.title : route.name;
         const color = focused ? colors.brandPrimary : colors.textSecondary;
@@ -77,13 +76,13 @@ export function TabBar({ state, descriptors, navigation }: BottomTabBarProps) {
             accessibilityLabel={label}
             style={tabStyle}
             onPress={() => {
-              const event = navigation.emit({
+              const event = emitter.emit({
                 type: 'tabPress',
                 target: route.key,
                 canPreventDefault: true,
               });
               if (!focused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
+                navigateToTab(route.key);
               }
             }}
           >

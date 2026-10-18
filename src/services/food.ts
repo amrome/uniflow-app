@@ -1,4 +1,4 @@
-import type { ImageSourcePropType } from 'react-native';
+import type { ImageProps } from 'expo-image';
 
 import { minutesOfDay, todayAtMinutes } from '@/lib/time';
 
@@ -35,7 +35,7 @@ export type Restaurant = {
   cuisine: L;
   prepMin: number;
   location: L;
-  logo?: ImageSourcePropType;
+  logo?: ImageProps['source'];
   rating?: string;
   comingSoon?: boolean;
   /** Closed for now by the restaurant (Restaurant portal); takes no orders. */
@@ -297,7 +297,7 @@ type FavoriteOrderRow = {
 };
 
 // Logos ship inside the app (a restaurant's image_url, when set, wins).
-const logos: Record<string, ImageSourcePropType> = {
+const logos: Record<string, ImageProps['source']> = {
   kafton: require('../../assets/images/food/kafton.png'),
   archi: require('../../assets/images/food/archi.png'),
   tropika: require('../../assets/images/food/tropika.jpg'),

@@ -1,4 +1,4 @@
-import { useFocusEffect, useRouter } from 'expo-router';
+import { Redirect, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Linking, StyleSheet, View } from 'react-native';
 
@@ -34,16 +34,20 @@ export default function ParkingReserved() {
       return () => passOnScreen.set(false);
     }, []),
   );
-  if (!r) return null;
+  // Cancelled somewhere else (another screen, the dashboard): nothing to show, back to Parking.
+  if (!r) return <Redirect href="/parking" />;
 
   const now = parkingNow();
   const refundable = canRefund(r, now);
-  const askNow = !r.confirmed && now >= r.arriveAt - CHECK_BEFORE_MIN;
+  // Asking only makes sense inside the window; after it the arrival time has simply passed.
+  const askNow = !r.confirmed && now >= r.arriveAt - CHECK_BEFORE_MIN && refundable;
   const status = r.confirmed
     ? t.parking.statusConfirmed
-    : askNow
-      ? t.parking.statusAsk
-      : t.parking.statusWaiting;
+    : !refundable
+      ? t.parking.statusPassed
+      : askNow
+        ? t.parking.statusAsk
+        : t.parking.statusWaiting;
   const amount = fmt(t.food.price, { n: r.amount });
 
   const method = { applePay: t.parking.applePay, mada: t.parking.mada, stcPay: t.parking.stcPay }[
@@ -95,7 +99,7 @@ export default function ParkingReserved() {
           />
         </View>
 
-        {askNow && refundable && (
+        {askNow && (
           <Button label={t.parking.check.yes} style={styles.full} onPress={() => confirm(r)} />
         )}
         <Button

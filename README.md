@@ -5,7 +5,7 @@ instructor schedules, food pre-ordering, parking, events, transportation and pro
 
 ## Stack
 
-Expo SDK 57 · React Native · TypeScript (strict) · expo-router · Jest · ESLint + Prettier
+Expo SDK 58 (Node 22.13+) · React Native · TypeScript (strict) · expo-router · Jest · ESLint + Prettier
 
 ## Getting started
 
@@ -13,6 +13,20 @@ Expo SDK 57 · React Native · TypeScript (strict) · expo-router · Jest · ESL
 npm install
 npm start        # scan the QR code with Expo Go
 ```
+
+### Campus map
+
+The Transportation tab shows a 3D map of campus and SAB Station. It is a
+[MapLibre GL JS](https://maplibre.org) page inside a WebView, so it **works in Expo Go** but needs an
+internet connection (it loads MapLibre from a CDN and the tiles from
+[OpenFreeMap](https://openfreemap.org), free, no API key).
+
+- `src/features/transport/campusMapData.ts`: campus and SAB Station coordinates, map styles, camera.
+- `src/features/transport/campusBuildings.ts`: the hand-drawn campus buildings (orange). Heights
+  are in metres. Every other building comes from OpenStreetMap.
+- To add a building: draw it at [geojson.io](https://geojson.io) in satellite view, give it `name`,
+  `name_ar` and `height` properties, and paste the feature into `campusBuildings.ts`.
+- `mapHtml.ts` builds the web page, `CampusWebMap.tsx` is the React Native wrapper.
 
 ## Scripts
 

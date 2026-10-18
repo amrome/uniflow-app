@@ -85,11 +85,14 @@ test('a ticket past the refund time can still be cancelled, without a refund', a
   await user.press((await screen.findAllByRole('tab'))[3]); // Parking
   await user.press(await screen.findByText(/View your pass/));
   expect(screen.queryByText('Cancel & get refund')).toBeNull();
+  expect(screen.getByText('Arrival time passed')).toBeTruthy(); // not "Please confirm"
+  expect(screen.queryByRole('button', { name: "Yes, I'm coming" })).toBeNull();
   await user.press(await screen.findByRole('button', { name: 'Cancel reservation' }));
   await user.press(screen.getAllByText('Cancel reservation').slice(-1)[0]); // confirm in the dialog
   expect(reservation.get()).toBeNull();
   expect(mockShow).toHaveBeenCalledWith(
     expect.objectContaining({ body: expect.stringContaining('No refund') }),
   );
+  expect(await screen.findByText('Reserve a slot', {}, WAIT)).toBeTruthy(); // back on Parking
   await act(async () => {});
 });
